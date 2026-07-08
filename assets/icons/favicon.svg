@@ -1,23 +1,220 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none" stroke="#2b2b2b" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round">
-  <g transform="rotate(25 16 16)">
-    <!-- left solar panel with grid -->
-    <rect x="1" y="12" width="10" height="8" stroke="#2b2b2b" fill="none" stroke-width="0.9"/>
-    <line x1="6" y1="12" x2="6" y2="20" stroke-width="0.5"/>
-    <line x1="1" y1="16" x2="11" y2="16" stroke-width="0.5"/>
-    <!-- right solar panel with grid -->
-    <rect x="21" y="12" width="10" height="8" stroke="#2b2b2b" fill="none" stroke-width="0.9"/>
-    <line x1="26" y1="12" x2="26" y2="20" stroke-width="0.5"/>
-    <line x1="21" y1="16" x2="31" y2="16" stroke-width="0.5"/>
-    <!-- satellite body: elongated vertical stack (Starmind-style) -->
-    <!-- top dome -->
-    <path d="M 13 5 Q 13 3.5 14.5 3.5 L 17.5 3.5 Q 19 3.5 19 5 L 19 7" fill="#2b2b2b" stroke="none"/>
-    <!-- upper body segment -->
-    <rect x="13" y="7" width="6" height="5" fill="#2b2b2b" stroke="none"/>
-    <!-- middle joint (where panels connect) -->
-    <rect x="12.5" y="12" width="7" height="8" fill="#2b2b2b" stroke="none"/>
-    <!-- lower body segment -->
-    <rect x="13" y="20" width="6" height="5" fill="#2b2b2b" stroke="none"/>
-    <!-- bottom dome -->
-    <path d="M 13 25 L 13 27 Q 13 28.5 14.5 28.5 L 17.5 28.5 Q 19 28.5 19 27 L 19 25" fill="#2b2b2b" stroke="none"/>
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  favicon for nilekhc.github.io
+  version: 6 (AI satellite, symmetric booms, space background)
+  design date: 2026-07-08
+
+  design changes from v5:
+  - added dark space background (radial gradient from #0B1220 center to
+    #030510 edges) so the icon reads as "satellite in space" not
+    "satellite floating on browser chrome"
+  - scattered a subtle starfield behind the satellite (small white/off-
+    white circles at varied positions and sizes)
+  - added a visible right-side boom arm to mirror the left boom (v5 had
+    only a left boom because the bus 3/4-perspective right-face polygon
+    happened to overlap where the right boom would sit, covering it)
+  - moved right panel outward to make room for the visible right boom
+    (from x=328 to x=344, so boom occupies x=328-344)
+
+  color palette:
+    - space background: radial gradient #0B1220 -> #030510
+    - stars: #FFFFFF at 0.85 opacity (bright) and #CBD5E1 at 0.55 (dim)
+    - bus front face: linear gradient #F3F4F6 -> #6B7280 (silver depth)
+    - bus shadow face: #4B5563
+    - solar panels: linear gradient #6366F1 -> #1E1B4B (indigo depth)
+    - AI neural glow: #22D3EE (cyan) with soft blur
+    - active LEDs: #F59E0B amber, #DC2626 red, #10B981 green
+    - booms: #6B7280 (matches bus tone)
+
+  design constraints (per premiumfavicon.com/blog/favicon-design-principles
+  and the alisawuffles.github.io downsample-from-large approach):
+  - single bold silhouette against dark space background
+  - fills 95%+ of the canvas
+  - AI cue = cyan neural node cluster on underside
+  - symmetric attachment booms left and right for visual consistency
+  - designed at 512 source, rendered at 16/32/48/64 for the ICO
+
+  when updating the favicon: preserve the "tilted satellite in space with
+  symmetric booms and underside cyan glow" silhouette. bump ?t= in
+  head.html via hugo's now.Format cache-bust. see CLAUDE.md rule 6.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <title>nilekh — AI satellite in space</title>
+  <desc>A tilted 3/4 view of an orbital AI compute satellite in deep space: a flat silver bus with symmetric attachment booms flanking two wide straight indigo solar panels, with a glowing cyan cluster of interconnected neural nodes on the underside. Dark starfield background.</desc>
+
+  <defs>
+    <!-- deep space background radial gradient -->
+    <radialGradient id="space" cx="0.5" cy="0.5" r="0.75">
+      <stop offset="0%" stop-color="#0B1220"/>
+      <stop offset="60%" stop-color="#060A15"/>
+      <stop offset="100%" stop-color="#030510"/>
+    </radialGradient>
+
+    <linearGradient id="panel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#6366F1"/>
+      <stop offset="45%" stop-color="#312E81"/>
+      <stop offset="100%" stop-color="#1E1B4B"/>
+    </linearGradient>
+
+    <linearGradient id="busFront" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#F3F4F6"/>
+      <stop offset="55%" stop-color="#C4CBD4"/>
+      <stop offset="100%" stop-color="#6B7280"/>
+    </linearGradient>
+
+    <radialGradient id="aiGlow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0%" stop-color="#67E8F9" stop-opacity="1"/>
+      <stop offset="40%" stop-color="#22D3EE" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#0891B2" stop-opacity="0"/>
+    </radialGradient>
+
+    <filter id="softGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="12" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- subtle star glow for brighter stars -->
+    <filter id="starGlow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="1.5" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+      <!-- circular clip so the space background is a disc (not a full square)
+         at 16px this reads as a small dark planet with satellite silhouette
+         instead of a filled dark block. -->
+    <clipPath id="discClip">
+      <circle cx="256" cy="256" r="254"/>
+    </clipPath>
+  </defs>
+
+  <!-- DEEP SPACE BACKGROUND + STARFIELD: clipped to a disc so the icon is a
+       circular "planet" shape, not a filled dark rectangle. -->
+  <g clip-path="url(#discClip)">
+  <rect x="0" y="0" width="512" height="512" fill="url(#space)"/>
+
+  <!-- STARFIELD: scattered points of light behind the satellite -->
+  <!-- dim background stars first -->
+  <g fill="#CBD5E1" opacity="0.55">
+    <circle cx="45" cy="60" r="1.5"/>
+    <circle cx="120" cy="95" r="1"/>
+    <circle cx="380" cy="70" r="1.5"/>
+    <circle cx="455" cy="130" r="1"/>
+    <circle cx="480" cy="380" r="1.5"/>
+    <circle cx="60" cy="440" r="1"/>
+    <circle cx="30" cy="280" r="1.5"/>
+    <circle cx="490" cy="240" r="1"/>
+    <circle cx="200" cy="40" r="1"/>
+    <circle cx="70" cy="180" r="1"/>
+    <circle cx="440" cy="470" r="1.5"/>
+  </g>
+  <!-- brighter foreground stars with subtle glow -->
+  <g fill="#FFFFFF" opacity="0.9" filter="url(#starGlow)">
+    <circle cx="80" cy="90" r="2.5"/>
+    <circle cx="420" cy="45" r="2"/>
+    <circle cx="30" cy="380" r="2"/>
+    <circle cx="485" cy="440" r="2.5"/>
+    <circle cx="150" cy="470" r="2"/>
+    <circle cx="470" cy="200" r="2"/>
+    <circle cx="20" cy="150" r="2"/>
+  </g>
+  </g>
+
+  <!-- entire satellite composition tilted 25 degrees clockwise around canvas center -->
+  <g transform="rotate(25 256 256)">
+
+    <!-- background cyan halo suggesting AI activity -->
+    <circle cx="256" cy="256" r="290" fill="url(#aiGlow)" opacity="0.32"/>
+
+    <!-- LEFT solar panel: STRAIGHT flat rectangle extending to canvas edge -->
+    <rect x="0" y="220" width="184" height="130" fill="url(#panel)"/>
+    <!-- cell grid: 4 columns x 2 rows of solar cells -->
+    <line x1="46" y1="220" x2="46" y2="350" stroke="#0F172A" stroke-width="3" opacity="0.55"/>
+    <line x1="92" y1="220" x2="92" y2="350" stroke="#0F172A" stroke-width="3" opacity="0.55"/>
+    <line x1="138" y1="220" x2="138" y2="350" stroke="#0F172A" stroke-width="3" opacity="0.55"/>
+    <line x1="0" y1="285" x2="184" y2="285" stroke="#0F172A" stroke-width="3" opacity="0.55"/>
+    <!-- top edge highlight (light catch) -->
+    <rect x="0" y="220" width="184" height="10" fill="#818CF8" opacity="0.6"/>
+    <!-- panel outline -->
+    <rect x="0" y="220" width="184" height="130" fill="none" stroke="#0F172A" stroke-width="2.5"/>
+
+    <!-- RIGHT solar panel: STRAIGHT flat rectangle (moved outward to make room for right boom) -->
+    <rect x="344" y="220" width="168" height="130" fill="url(#panel)"/>
+    <line x1="386" y1="220" x2="386" y2="350" stroke="#0F172A" stroke-width="3" opacity="0.55"/>
+    <line x1="428" y1="220" x2="428" y2="350" stroke="#0F172A" stroke-width="3" opacity="0.55"/>
+    <line x1="470" y1="220" x2="470" y2="350" stroke="#0F172A" stroke-width="3" opacity="0.55"/>
+    <line x1="344" y1="285" x2="512" y2="285" stroke="#0F172A" stroke-width="3" opacity="0.55"/>
+    <rect x="344" y="220" width="168" height="10" fill="#818CF8" opacity="0.6"/>
+    <rect x="344" y="220" width="168" height="130" fill="none" stroke="#0F172A" stroke-width="2.5"/>
+
+    <!-- SATELLITE BUS -->
+    <!-- top face for 3/4 depth -->
+    <polygon points="198,180 314,180 328,164 212,164" fill="#9CA3AF"/>
+    <!-- right side face for depth -->
+    <polygon points="314,180 328,164 328,388 314,404" fill="#4B5563"/>
+    <!-- main front face of bus -->
+    <rect x="198" y="180" width="116" height="224" fill="url(#busFront)"/>
+    <!-- bus outline -->
+    <rect x="198" y="180" width="116" height="224" fill="none" stroke="#374151" stroke-width="2"/>
+    <!-- horizontal seam lines -->
+    <line x1="198" y1="240" x2="314" y2="240" stroke="#6B7280" stroke-width="2.5" opacity="0.7"/>
+    <line x1="198" y1="320" x2="314" y2="320" stroke="#6B7280" stroke-width="2.5" opacity="0.7"/>
+    <!-- vertical structural detail lines -->
+    <line x1="238" y1="188" x2="238" y2="400" stroke="#9CA3AF" stroke-width="1.5" opacity="0.6"/>
+    <line x1="274" y1="188" x2="274" y2="400" stroke="#9CA3AF" stroke-width="1.5" opacity="0.6"/>
+
+    <!-- BOOM ARMS (drawn AFTER bus to sit on top, both sides symmetric) -->
+    <!-- LEFT boom: connects left panel (ends at x=184) to bus (starts at x=198) -->
+    <rect x="184" y="270" width="14" height="30" fill="#6B7280" stroke="#374151" stroke-width="1.5"/>
+    <line x1="184" y1="285" x2="198" y2="285" stroke="#374151" stroke-width="1"/>
+    <!-- RIGHT boom: connects bus right-side-face (at x=328) to right panel (starts at x=344) -->
+    <rect x="328" y="270" width="16" height="30" fill="#6B7280" stroke="#374151" stroke-width="1.5"/>
+    <line x1="328" y1="285" x2="344" y2="285" stroke="#374151" stroke-width="1"/>
+
+    <!-- ANTENNA: tall mast reaching near top of canvas, prominent dish -->
+    <rect x="248" y="60" width="16" height="120" fill="#9CA3AF"/>
+    <ellipse cx="256" cy="54" rx="32" ry="14" fill="#C4CBD4" stroke="#4B5563" stroke-width="2.5"/>
+    <ellipse cx="256" cy="46" rx="32" ry="14" fill="#E5E7EB"/>
+    <!-- feedhorn on top of dish -->
+    <circle cx="256" cy="28" r="10" fill="#9CA3AF"/>
+    <line x1="256" y1="28" x2="256" y2="12" stroke="#6B7280" stroke-width="3.5"/>
+
+    <!-- ACTIVE LED indicators on bus front face -->
+    <circle cx="296" cy="200" r="8" fill="#F59E0B"/>
+    <circle cx="296" cy="200" r="13" fill="#F59E0B" opacity="0.35"/>
+    <circle cx="296" cy="226" r="6" fill="#DC2626"/>
+    <circle cx="296" cy="250" r="6" fill="#10B981"/>
+
+    <!-- AI NEURAL NODE CLUSTER on underside -->
+    <ellipse cx="256" cy="455" rx="230" ry="60" fill="url(#aiGlow)" opacity="0.75"/>
+
+    <g filter="url(#softGlow)">
+      <line x1="50" y1="425" x2="120" y2="470" stroke="#22D3EE" stroke-width="4" opacity="0.85"/>
+      <line x1="50" y1="425" x2="166" y2="410" stroke="#22D3EE" stroke-width="4" opacity="0.85"/>
+      <line x1="120" y1="470" x2="166" y2="410" stroke="#22D3EE" stroke-width="4" opacity="0.85"/>
+      <line x1="120" y1="470" x2="212" y2="485" stroke="#22D3EE" stroke-width="4" opacity="0.85"/>
+      <line x1="166" y1="410" x2="256" y2="430" stroke="#22D3EE" stroke-width="4" opacity="0.85"/>
+      <line x1="212" y1="485" x2="256" y2="430" stroke="#22D3EE" stroke-width="4" opacity="0.85"/>
+      <line x1="256" y1="430" x2="300" y2="485" stroke="#22D3EE" stroke-width="4" opacity="0.85"/>
+      <line x1="256" y1="430" x2="346" y2="410" stroke="#22D3EE" stroke-width="4" opacity="0.85"/>
+      <line x1="300" y1="485" x2="346" y2="410" stroke="#22D3EE" stroke-width="4" opacity="0.85"/>
+      <line x1="300" y1="485" x2="392" y2="470" stroke="#22D3EE" stroke-width="4" opacity="0.85"/>
+      <line x1="346" y1="410" x2="462" y2="425" stroke="#22D3EE" stroke-width="4" opacity="0.85"/>
+      <line x1="392" y1="470" x2="462" y2="425" stroke="#22D3EE" stroke-width="4" opacity="0.85"/>
+
+      <circle cx="50" cy="425" r="13" fill="#67E8F9"/>
+      <circle cx="120" cy="470" r="13" fill="#67E8F9"/>
+      <circle cx="166" cy="410" r="15" fill="#A5F3FC"/>
+      <circle cx="212" cy="485" r="13" fill="#67E8F9"/>
+      <circle cx="256" cy="430" r="18" fill="#CFFAFE"/>
+      <circle cx="300" cy="485" r="13" fill="#67E8F9"/>
+      <circle cx="346" cy="410" r="15" fill="#A5F3FC"/>
+      <circle cx="392" cy="470" r="13" fill="#67E8F9"/>
+      <circle cx="462" cy="425" r="13" fill="#67E8F9"/>
+    </g>
   </g>
 </svg>
