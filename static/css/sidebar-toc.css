@@ -165,3 +165,29 @@ html.dark .site-footer::before {
   opacity: 0.5;
 }
 
+/* mobile menu overlay fix: theme leaves the open menu transparent,
+   causing content bleed-through. force an opaque background that
+   matches the theme's light/dark background colors. */
+
+input[type="checkbox"]:checked ~ .trigger {
+  background: #ffffff;
+}
+
+html.dark input[type="checkbox"]:checked ~ .trigger {
+  background: #131418;
+}
+
+@media (prefers-color-scheme: dark) {
+  html:not(.light) input[type="checkbox"]:checked ~ .trigger {
+    background: #131418;
+  }
+}
+
+/* mobile menu spacing: theme puts the mode toggle (a#mode) outside
+   the menu list, so it doesn't get the same padding as menu-link
+   items. Give it matching top padding so the gap between "about"
+   and the toggle matches the gap between "blog" and "about". */
+
+input[type="checkbox"]:checked ~ .trigger a#mode {
+  padding-top: 0.6rem;
+}
