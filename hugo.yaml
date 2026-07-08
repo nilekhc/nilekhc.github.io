@@ -1,0 +1,56 @@
+baseURL: "https://nilekhc.github.io/"
+locale: en-us
+title: "nilekh"
+theme: hugo-blog-awesome
+
+enableRobotsTXT: true
+enableGitInfo: false
+buildDrafts: false
+buildFuture: false
+enableEmoji: true
+
+pagination:
+  pagerSize: 10
+
+markup:
+  goldmark:
+    renderer:
+      unsafe: true                       # allow raw html (future visualizer embeds)
+  tableOfContents:
+    startLevel: 2
+    endLevel: 3
+    ordered: true                        # alisa uses ordered list for toc
+  highlight:
+    style: github-dark
+    codeFences: true
+    guessSyntax: true
+
+params:
+  sitename: "nilekh"
+  description: "notes on inference"
+  defaultColor: dark
+  showToc: true
+  showTags: false
+  showReadingTime: false
+  showAuthor: false
+  showShare: false
+  showRSSButton: true
+  author:
+    name: "Nilekh Chaudhari"
+    intro: ""
+  socialIcons:
+    - name: github
+      url: https://github.com/nilekhc
+    - name: linkedin
+      url: https://linkedin.com/in/nilekhchaudhari
+    - name: x
+      url: https://x.com/nilekhchaudhari
+
+menu:
+  main:
+    - name: blog
+      url: /post/
+      weight: 1
+    - name: about
+      url: /about/
+      weight: 2

@@ -1,0 +1,14 @@
+# hugo build artifacts
+public/
+resources/
+.hugo_build.lock
+
+# local editor/tooling state (never commit)
+.claude/
+.DS_Store
+.idea/
+.vscode/
+
+# node/npm (if we ever add JS tooling later)
+node_modules/
+CLAUDE.md

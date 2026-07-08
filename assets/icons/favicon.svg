@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none" stroke="#2b2b2b" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round">
+  <g transform="rotate(25 16 16)">
+    <!-- left solar panel with grid -->
+    <rect x="1" y="12" width="10" height="8" stroke="#2b2b2b" fill="none" stroke-width="0.9"/>
+    <line x1="6" y1="12" x2="6" y2="20" stroke-width="0.5"/>
+    <line x1="1" y1="16" x2="11" y2="16" stroke-width="0.5"/>
+    <!-- right solar panel with grid -->
+    <rect x="21" y="12" width="10" height="8" stroke="#2b2b2b" fill="none" stroke-width="0.9"/>
+    <line x1="26" y1="12" x2="26" y2="20" stroke-width="0.5"/>
+    <line x1="21" y1="16" x2="31" y2="16" stroke-width="0.5"/>
+    <!-- satellite body: elongated vertical stack (Starmind-style) -->
+    <!-- top dome -->
+    <path d="M 13 5 Q 13 3.5 14.5 3.5 L 17.5 3.5 Q 19 3.5 19 5 L 19 7" fill="#2b2b2b" stroke="none"/>
+    <!-- upper body segment -->
+    <rect x="13" y="7" width="6" height="5" fill="#2b2b2b" stroke="none"/>
+    <!-- middle joint (where panels connect) -->
+    <rect x="12.5" y="12" width="7" height="8" fill="#2b2b2b" stroke="none"/>
+    <!-- lower body segment -->
+    <rect x="13" y="20" width="6" height="5" fill="#2b2b2b" stroke="none"/>
+    <!-- bottom dome -->
+    <path d="M 13 25 L 13 27 Q 13 28.5 14.5 28.5 L 17.5 28.5 Q 19 28.5 19 27 L 19 25" fill="#2b2b2b" stroke="none"/>
+  </g>
+</svg>

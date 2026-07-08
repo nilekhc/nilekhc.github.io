@@ -1,0 +1,167 @@
+/* sidebar toc — alisa-wuffles-style sticky left rail with scrollspy.
+   activates only when `layouts/single.html` renders `.post-with-sidebar` (toc: true + non-empty toc).
+   hides below 1100px viewport width so mobile keeps the single-column reading flow. */
+
+.post-with-sidebar {
+  position: relative;
+}
+
+.toc-sidebar {
+  position: fixed;
+  left: 1.5rem;
+  top: 6rem;
+  width: 200px;
+  max-height: calc(100vh - 8rem);
+  overflow-y: auto;
+  z-index: 100;
+}
+
+.toc-sidebar .toc-title {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--body-text-color, #666);
+  opacity: 0.6;
+  font-weight: 700;
+  margin: 0 0 0.6rem;
+}
+
+.toc-sidebar ol,
+.toc-sidebar ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-left: 2px solid var(--border-color, #333);
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.toc-sidebar ol ol,
+.toc-sidebar ul ul,
+.toc-sidebar ol ul,
+.toc-sidebar ul ol {
+  border-left: none;
+  padding-left: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.toc-sidebar a {
+  font-size: 0.82rem;
+  color: var(--body-text-color, #999);
+  opacity: 0.7;
+  padding-left: 0.75rem;
+  display: block;
+  line-height: 1.4;
+  transition: color 0.15s, opacity 0.15s;
+  text-decoration: none;
+}
+
+.toc-sidebar a:hover,
+.toc-sidebar a.active {
+  color: var(--link-color, #4788e2);
+  opacity: 1;
+}
+
+.toc-sidebar a.active {
+  font-weight: 600;
+}
+
+@media (max-width: 1100px) {
+  .toc-sidebar {
+    display: none;
+  }
+}
+
+/* footer polish — two rows: social icons on top, copyright meta below.
+   short faded rule above signals "content ended" without drawing a hard
+   full-width divider. inherits theme's color vars so dark/light mode
+   both look correct. */
+
+.site-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 2rem 1rem 2.5rem;
+  margin-top: 3rem;
+  position: relative;
+  border-top: none;
+}
+
+.site-footer::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 0.6rem);
+  max-width: 830px;
+  border-top: 1px solid #ececec;
+}
+
+/* dark-mode: match the theme's header border color ($dark-light).
+   theme triggers dark via html.dark and via prefers-color-scheme when
+   html.light isn't set. mirror both. */
+html.dark .site-footer::before {
+  border-top-color: #1b1d25;
+}
+
+@media (prefers-color-scheme: dark) {
+  html:not(.light) .site-footer::before {
+    border-top-color: #1b1d25;
+  }
+}
+
+.site-footer__icons {
+  display: flex;
+  gap: 1.1rem;
+  align-items: center;
+  justify-content: center;
+}
+
+.site-footer__icons a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--body-text-color, #999);
+  opacity: 0.6;
+  transition: opacity 0.15s, color 0.15s;
+}
+
+.site-footer__icons a:hover {
+  color: var(--link-color, #4788e2);
+  opacity: 1;
+}
+
+.site-footer__icons svg {
+  width: 14px;
+  height: 14px;
+}
+
+.site-footer__meta {
+  font-size: 0.78rem;
+  color: var(--body-text-color, #999);
+  opacity: 0.65;
+  text-align: center;
+  line-height: 1.5;
+}
+
+.site-footer__meta a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: rgba(128, 128, 128, 0.35);
+  text-underline-offset: 2px;
+  transition: color 0.15s, text-decoration-color 0.15s;
+}
+
+.site-footer__meta a:hover {
+  color: var(--link-color, #4788e2);
+  text-decoration-color: currentColor;
+}
+
+.site-footer__sep {
+  margin: 0 0.35rem;
+  opacity: 0.5;
+}
+
