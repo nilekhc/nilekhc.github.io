@@ -1,7 +1,7 @@
 ---
-title: "Hello"
+title: "A new notebook"
 date: 2026-07-08
-draft: true
+draft: false
 toc: true
 ---
 
