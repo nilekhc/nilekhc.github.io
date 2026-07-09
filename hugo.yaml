@@ -41,10 +41,16 @@ params:
   socialIcons:
     - name: github
       url: https://github.com/nilekhc
+      title: nilekhc
     - name: linkedin
       url: https://linkedin.com/in/nilekhchaudhari
+      title: nilekhchaudhari
     - name: x
       url: https://x.com/nilekhchaudhari
+      title: nilekhchaudhari
+    - name: slack
+      url: https://slack.k8s.io/
+      title: Kubernetes Slack · Nilekh
 
 menu:
   main:

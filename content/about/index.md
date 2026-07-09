@@ -36,4 +36,4 @@ Lately I've been getting interested in what infrastructure looks like at the nex
 
 ## Elsewhere
 
-Find me on [GitHub](https://github.com/nilekhc), [LinkedIn](https://linkedin.com/in/nilekhchaudhari), and [X](https://x.com/nilekhchaudhari).
+Find me on [GitHub](https://github.com/nilekhc), [LinkedIn](https://linkedin.com/in/nilekhchaudhari), and [X](https://x.com/nilekhchaudhari). Also on [Kubernetes Slack](https://slack.k8s.io/) as `Nilekh`.
