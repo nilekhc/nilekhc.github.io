@@ -4,6 +4,13 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  # daily rebuild at 08:03 UTC so future-dated posts publish on their date.
+  # hugo's buildFuture is false, so posts with a date in the future are
+  # skipped at build time; this cron re-runs the build every day so a post
+  # dated tomorrow gets included the next morning without a manual push.
+  # off-minute (03) to dodge github actions cron congestion at :00.
+  schedule:
+    - cron: '3 8 * * *'
 
 permissions:
   contents: read

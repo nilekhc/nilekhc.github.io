@@ -1,0 +1,1205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>PagedAttention: interactive visualizer</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #151922;
+    --panel2: #1c2130;
+    --border: #2a3142;
+    --text: #e5e7eb;
+    --muted: #9aa3b2;
+    --accent: #7dd3fc;
+    --accent2: #a78bfa;
+    --good: #86efac;
+    --bad: #fca5a5;
+    --slot-empty: #2a3142;
+    --slot-filled: #38bdf8;
+    --slot-new: #fbbf24;
+    --slot-waste: #fca5a5;
+    --slot-req-a: #38bdf8;
+    --slot-req-b: #a78bfa;
+    --slot-req-c: #86efac;
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    margin: 0;
+    padding: 20px;
+    line-height: 1.4;
+  }
+  h1 { margin: 0 0 8px 0; font-size: 22px; }
+  h2 { margin: 0 0 8px 0; font-size: 16px; color: var(--accent); }
+  h3 { margin: 0 0 6px 0; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .subtitle { color: var(--muted); font-size: 13px; margin-bottom: 20px; }
+  .layout {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 20px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+  .main-panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+  }
+  .side-panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    height: fit-content;
+    position: sticky;
+    top: 20px;
+  }
+  /* stacked layout for narrow containers (e.g. embedded in a blog page). */
+  @media (max-width: 1000px) {
+    body { padding: 12px; }
+    .layout {
+      grid-template-columns: 1fr;
+    }
+    .side-panel {
+      position: static;
+    }
+    .cache-container {
+      grid-template-columns: 1fr;
+    }
+  }
+  .step-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--accent);
+    margin-bottom: 4px;
+  }
+  .step-desc {
+    color: var(--muted);
+    font-size: 13px;
+    margin-bottom: 16px;
+    min-height: 40px;
+  }
+  .prompt-box {
+    background: var(--panel2);
+    padding: 12px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    border: 1px solid var(--border);
+  }
+  .prompt-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .prompt-tokens {
+    display: flex; flex-wrap: wrap; gap: 4px;
+  }
+  .token {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-family: 'SF Mono', Consolas, monospace;
+    font-size: 12px;
+    transition: all 0.3s;
+  }
+  .token.prompt { background: #1e293b; border-color: #334155; }
+  .token.generated { background: #164e63; border-color: #0891b2; color: #a5f3fc; }
+  .token.new { background: #78350f; border-color: #f59e0b; color: #fde68a; animation: flash 0.5s; }
+  @keyframes flash {
+    0% { background: #fbbf24; color: #000; transform: scale(1.2); }
+    100% { background: #78350f; }
+  }
+  .cache-container {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 24px;
+    margin-top: 20px;
+  }
+  .block-table, .kv-cache {
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px;
+  }
+  table.bt {
+    width: 100%; border-collapse: collapse; font-size: 12px;
+  }
+  table.bt th {
+    text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--border);
+    font-weight: 600; color: var(--muted); font-size: 11px;
+  }
+  table.bt td { padding: 6px; border-bottom: 1px solid #1a2030; }
+  table.bt tr.new-row { animation: rowFlash 0.6s; }
+  @keyframes rowFlash {
+    0% { background: rgba(251, 191, 36, 0.3); }
+    100% { background: transparent; }
+  }
+  .phys-num { font-family: monospace; color: var(--accent); font-weight: 600; }
+  .fill-count { font-family: monospace; }
+  .fill-count.full { color: var(--bad); }
+  .fill-count.partial { color: var(--slot-new); }
+  .blocks-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+  .physblock {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px;
+    transition: all 0.3s;
+  }
+  .physblock.highlight { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(125,211,252,0.2); }
+  .physblock-label {
+    font-size: 10px; color: var(--muted); text-transform: uppercase;
+    letter-spacing: 0.5px; margin-bottom: 4px;
+  }
+  .slots {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 3px;
+  }
+  .slot {
+    aspect-ratio: 1;
+    background: var(--slot-empty);
+    border-radius: 3px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: monospace; font-size: 10px;
+    color: #fff; padding: 2px;
+    text-align: center;
+    overflow: hidden;
+    transition: all 0.3s;
+  }
+  .slot.filled { background: var(--slot-req-a); color: #0f172a; }
+  .slot.filled.req-b { background: var(--slot-req-b); color: #1e1b4b; }
+  .slot.filled.req-c { background: var(--slot-req-c); color: #14532d; }
+  .slot.new-slot { animation: slotFlash 0.6s; }
+  @keyframes slotFlash {
+    0% { background: var(--slot-new); transform: scale(1.3); }
+    100% { }
+  }
+  .controls {
+    display: flex; gap: 8px; margin-top: 20px; align-items: center;
+    padding-top: 16px; border-top: 1px solid var(--border);
+  }
+  button {
+    background: var(--panel2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 8px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 13px;
+    transition: all 0.15s;
+  }
+  button:hover { background: #232939; border-color: var(--accent); }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  button.primary { background: #0369a1; border-color: #0284c7; }
+  button.primary:hover { background: #0284c7; }
+  .step-counter {
+    color: var(--muted); font-size: 12px; font-family: monospace;
+    margin-left: auto;
+  }
+  .comparison {
+    margin-top: 24px;
+    padding: 14px;
+    background: var(--panel2);
+    border-radius: 6px;
+    border: 1px solid var(--border);
+  }
+  .comparison-row {
+    display: grid;
+    grid-template-columns: 130px 1fr 80px;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 8px;
+    font-size: 12px;
+  }
+  .comparison-label { color: var(--muted); }
+  .bar {
+    height: 20px; border-radius: 4px; background: var(--panel);
+    position: relative; overflow: hidden;
+  }
+  .bar-fill {
+    height: 100%; transition: width 0.4s;
+    display: flex; align-items: center; padding-left: 6px;
+    font-size: 10px; font-family: monospace;
+  }
+  .bar-fill.used { background: #38bdf8; color: #0f172a; }
+  .bar-fill.waste { background: #fca5a5; color: #7f1d1d; }
+  .comparison-val { font-family: monospace; font-size: 11px; text-align: right; }
+  .legend {
+    display: flex; gap: 12px; margin-top: 12px; font-size: 11px;
+    color: var(--muted); flex-wrap: wrap;
+  }
+  .legend-item { display: flex; align-items: center; gap: 5px; }
+  .legend-sw { width: 12px; height: 12px; border-radius: 2px; }
+  .narration {
+    background: #1e293b;
+    border-left: 3px solid var(--accent);
+    padding: 10px 14px;
+    border-radius: 4px;
+    margin: 16px 0;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .narration strong { color: var(--accent); }
+  .arrow-map {
+    margin-top: 12px;
+    padding: 10px;
+    background: var(--panel);
+    border-radius: 4px;
+    border: 1px dashed var(--border);
+    font-family: monospace;
+    font-size: 11px;
+    color: var(--muted);
+    max-height: 80px;
+    overflow-y: auto;
+  }
+  .arrow-map .arrow-line { padding: 2px 0; }
+  .arrow-map .arrow { color: var(--accent); }
+  .paper-terms {
+    margin-top: 8px;
+    padding: 10px 12px;
+    background: #1a2130;
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent2);
+    border-radius: 4px;
+    font-size: 12px;
+    line-height: 1.55;
+  }
+  .paper-terms p { margin: 0 0 6px 0; }
+  .paper-terms p:last-child { margin-bottom: 0; }
+  .paper-terms .term { color: var(--accent2); font-weight: 600; }
+  .paper-terms .plain { color: var(--muted); }
+  .paper-terms code { background: var(--panel); padding: 1px 5px; border-radius: 3px; font-size: 11px; color: var(--text); }
+  .refcount-badge {
+    display: inline-block;
+    background: var(--accent2);
+    color: #1e1b4b;
+    padding: 1px 5px;
+    border-radius: 8px;
+    font-size: 9px;
+    font-weight: 700;
+    margin-left: 4px;
+  }
+  .cow-flash {
+    animation: cowFlash 0.8s;
+  }
+  @keyframes cowFlash {
+    0% { background: #fbbf24 !important; transform: scale(1.15); }
+    100% { }
+  }
+  .switcher { display: flex; gap: 4px; margin-bottom: 16px; }
+  .switcher button { flex: 1; font-size: 12px; padding: 6px; }
+  .switcher button.active { background: #0369a1; border-color: #0284c7; }
+  .scenario-info {
+    padding: 10px 12px;
+    background: var(--panel2);
+    border-radius: 4px;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 12px;
+    border: 1px solid var(--border);
+  }
+  code { background: var(--panel2); padding: 1px 5px; border-radius: 3px; font-size: 11px; }
+
+</style>
+</head>
+<body>
+  <div class="layout">
+    <div class="main-panel">
+      <h1>PagedAttention: interactive visualizer</h1>
+      <p class="subtitle">click <b>Step forward</b> to see how vLLM allocates KV cache blocks as tokens are generated. Compare it to old-style contiguous allocation on the right.</p>
+
+      <div class="switcher">
+        <button id="btn-scenario-1" class="active" onclick="loadScenario(1)">1. Single request (Fig. 6 in paper)</button>
+        <button id="btn-scenario-2" onclick="loadScenario(2)">2. Parallel sampling (Fig. 8)</button>
+        <button id="btn-scenario-3" onclick="loadScenario(3)">3. Copy-on-write (Fig. 8)</button>
+        <button id="btn-scenario-4" onclick="loadScenario(4)">4. Two independent requests (Fig. 7)</button>
+      </div>
+
+      <div class="scenario-info" id="scenario-info"></div>
+
+      <div class="step-title" id="step-title">Step 0: Initial state</div>
+      <div class="step-desc" id="step-desc">Waiting to start...</div>
+
+      <div class="prompt-box">
+        <div class="prompt-label">requests</div>
+        <div id="prompts"></div>
+      </div>
+
+      <div class="cache-container">
+        <div class="block-table">
+          <h3>Block tables</h3>
+          <div id="block-tables"></div>
+        </div>
+        <div class="kv-cache">
+          <h3>KV Cache pool <span style="color:var(--muted);font-weight:400;font-size:11px;">(9 blocks × 4 slots each)</span></h3>
+          <div class="blocks-grid" id="blocks-grid"></div>
+        </div>
+      </div>
+
+      <div class="legend">
+        <div class="legend-item"><div class="legend-sw" style="background:var(--slot-empty)"></div>empty slot</div>
+        <div class="legend-item"><div class="legend-sw" style="background:var(--slot-req-a)"></div>request A</div>
+        <div class="legend-item"><div class="legend-sw" style="background:var(--slot-req-b)"></div>request B</div>
+        <div class="legend-item"><div class="legend-sw" style="background:var(--slot-req-c)"></div>request C</div>
+        <div class="legend-item"><div class="legend-sw" style="background:var(--slot-new)"></div>just filled/allocated</div>
+      </div>
+
+
+      <div class="controls">
+        <button onclick="reset()">⟲ Reset</button>
+        <button onclick="stepBack()" id="btn-back">← Step back</button>
+        <button class="primary" onclick="stepForward()" id="btn-forward">Step forward →</button>
+        <button onclick="autoPlay()" id="btn-auto">▶ Auto</button>
+        <span class="step-counter" id="counter">step 0 of ?</span>
+      </div>
+    </div>
+
+    <div class="side-panel">
+      <h2>What just happened</h2>
+      <div class="narration" id="narration">
+        Click <strong>Step forward</strong> to begin. Each click advances one generation step. Read this box after every step. It explains why physical blocks were allocated the way they were.
+      </div>
+
+      <h3 style="margin-top:20px;">memory used vs waste</h3>
+      <div class="comparison">
+        <div class="comparison-row">
+          <span class="comparison-label">PagedAttention</span>
+          <div class="bar"><div class="bar-fill used" id="paged-used-bar"></div></div>
+          <span class="comparison-val" id="paged-used-val">0/0</span>
+        </div>
+        <div class="comparison-row">
+          <span class="comparison-label">&nbsp;&nbsp;waste</span>
+          <div class="bar"><div class="bar-fill waste" id="paged-waste-bar"></div></div>
+          <span class="comparison-val" id="paged-waste-val">0</span>
+        </div>
+        <div class="comparison-row" style="margin-top:12px;">
+          <span class="comparison-label">Contiguous (old)</span>
+          <div class="bar"><div class="bar-fill used" id="cont-used-bar"></div></div>
+          <span class="comparison-val" id="cont-used-val">0/0</span>
+        </div>
+        <div class="comparison-row">
+          <span class="comparison-label">&nbsp;&nbsp;waste</span>
+          <div class="bar"><div class="bar-fill waste" id="cont-waste-bar"></div></div>
+          <span class="comparison-val" id="cont-waste-val">0</span>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:10px;">
+        <strong>Contiguous baseline</strong>: assume each request pre-reserves a full <code>max_len = 16 tokens</code> block of contiguous memory (4 physical blocks × 4 slots each), regardless of how many tokens it actually holds.
+      </div>
+
+      <h3 style="margin-top:20px;">Physical → logical map</h3>
+      <div class="arrow-map" id="arrow-map">(no requests yet)</div>
+
+      <h3 style="margin-top:20px;">What the paper calls this</h3>
+      <div class="paper-terms" id="paper-terms">
+        <p>Terminology cheat-sheet updates as you step through the scenarios.</p>
+      </div>
+    </div>
+  </div>
+
+<script>
+// scenario definitions
+// each scenario = list of steps
+// each step = { desc, action: { type, ... }, narration }
+// action types: prompt (fill initial tokens), gen (generate one token)
+
+const BLOCK_SIZE = 4;
+const NUM_BLOCKS = 9;
+const MAX_LEN_CONTIGUOUS = 16; // 4 blocks worth, per request
+
+const scenarios = {
+  1: {
+    info: "One request generating tokens. This is the walk-through in the paper's Figure 6 (§4.3, Decoding with PagedAttention and vLLM). Watch how physical blocks are allocated one at a time as generation progresses.",
+    paperTerms: {
+      overview: [
+        { term: 'block table', plain: 'the map from logical → physical block numbers for a request (paper §4.1)' },
+        { term: 'KV cache', plain: 'the pool of physical blocks holding key/value vectors from the attention layer' },
+        { term: 'block size', plain: 'how many tokens fit in one physical block. Real vLLM uses 16; this demo uses 4 so you can see it' },
+        { term: 'gpu_memory_utilization', plain: 'in real vLLM, this determines how many physical blocks exist in the pool (not shown here)' }
+      ]
+    },
+    requests: [
+      { id: 'A', color: 'req-a', promptTokens: ['Alan','Turing','is','a','computer','scientist'] }
+    ],
+    steps: [
+      {
+        title: "Initial: prompt loaded",
+        desc: "6 prompt tokens loaded. vLLM needs 2 blocks (6 tokens ÷ 4 slots/block). It picks physical blocks 7 and 1 from the free pool.",
+        narration: "The <strong>block table</strong> for Request A now has two entries: logical block 0 → physical block 7 (fully filled, 4/4), logical block 1 → physical block 1 (half filled, 2/4). Notice the physical numbers aren't in order; vLLM just grabs whatever's free.",
+        paperTerms: [
+          { term: 'prompt phase', plain: 'the paper distinguishes prompt phase (loading input tokens) from generation phase (producing new tokens one at a time)' }
+        ],
+        action: { type: 'prompt', requestId: 'A', physicalBlocks: [7, 1] }
+      },
+      {
+        title: 'Gen token 1: "and"',
+        desc: "Model generates 'and'. There's a free slot in physical block 1 (slot 3). Token goes there. No new allocation needed.",
+        narration: "This is <strong>the win</strong>. Old contiguous allocation would already have all 16 slots reserved. We only reserved 8, and we just filled 1 more with zero waste. Block 1 is now 3/4 full.",
+        paperTerms: [
+          { term: 'internal fragmentation', plain: 'wasted slots inside a block (block 1 has 1 empty slot). paper §3 quantifies this at 0-25% waste per request' }
+        ],
+        action: { type: 'gen', requestId: 'A', token: 'and' }
+      },
+      {
+        title: 'Gen token 2: "mathematician"',
+        desc: "Model generates 'mathematician'. Slot 4 of block 1 is still free, so it goes there. Block 1 is now FULL (4/4).",
+        narration: "Block 1 is completely full now. The next token will need a new physical block.",
+        action: { type: 'gen', requestId: 'A', token: 'mathematician' }
+      },
+      {
+        title: 'Gen token 3: "renowned" (NEW BLOCK)',
+        desc: "Block 1 is full. vLLM allocates a fresh physical block (block 3) and places 'renowned' in its first slot.",
+        narration: "This is when <strong>on-demand allocation</strong> shines. We didn't reserve block 3 up front; we grabbed it exactly when we needed it. Block table now has 3 entries. Physical blocks 7, 1, 3 hold this request. Scattered, but tracked.",
+        paperTerms: [
+          { term: 'dynamic block allocation', plain: 'blocks are allocated only when needed. Contrast with pre-allocating max_seq_len slots (which is what old systems did)' }
+        ],
+        action: { type: 'gen', requestId: 'A', token: 'renowned', newBlockPhysIdx: 3 }
+      },
+      {
+        title: 'Gen token 4: "for"',
+        desc: "Room in block 3, slot 2. Just fills.",
+        narration: "Continues smoothly. Block 3 goes to 2/4. Physical layout still: 7 → 1 → 3.",
+        action: { type: 'gen', requestId: 'A', token: 'for' }
+      },
+      {
+        title: 'Gen token 5: "his"',
+        desc: "Slot 3 of block 3.",
+        narration: "Block 3 at 3/4.",
+        action: { type: 'gen', requestId: 'A', token: 'his' }
+      },
+      {
+        title: 'Gen token 6: "work"',
+        desc: "Slot 4 of block 3. Now FULL again.",
+        narration: "Block 3 completely full at 4/4. Next token needs another new block.",
+        action: { type: 'gen', requestId: 'A', token: 'work' }
+      },
+      {
+        title: 'Gen token 7: "on" (NEW BLOCK)',
+        desc: "Block 3 is full. vLLM allocates physical block 5.",
+        narration: "Fourth physical block allocated. Look at the comparison: paged is using 13 slots for 13 tokens (3 wasted in the current block). Contiguous would have reserved all 16 upfront (same as ours right now), but note that contiguous CAN'T free those blocks until the request finishes. Paged is only holding what it needs.",
+        action: { type: 'gen', requestId: 'A', token: 'on', newBlockPhysIdx: 5 }
+      }
+    ]
+  },
+  2: {
+    info: "One request with N=2 output sequences (like OpenAI's `n=2` parameter). Both sequences share the prompt's physical blocks. This is the paper's Figure 8 (parallel sampling example).",
+    paperTerms: {
+      overview: [
+        { term: 'parallel sampling', plain: 'generate multiple different completions from the same prompt. Common for beam search, best-of-N sampling, or `n=2` in API calls (paper §4.3)' },
+        { term: 'reference count (ref_count)', plain: 'each physical block tracks how many logical sequences point at it. When N=2 sequences share the prompt, prompt blocks have ref_count=2' },
+        { term: 'shared prefix', plain: 'the prompt is identical across all N samples, so its physical blocks are physically shared. Only when sequences diverge do they get their own blocks' }
+      ]
+    },
+    requests: [
+      { id: 'A1', color: 'req-a', promptTokens: ['Four','score','and','seven'], label: 'Sample 1' },
+      { id: 'A2', color: 'req-b', promptTokens: ['Four','score','and','seven'], label: 'Sample 2' }
+    ],
+    steps: [
+      {
+        title: "Prompt loads for BOTH samples (shared blocks)",
+        desc: "The prompt 'Four score and seven' = 4 tokens = 1 block. Both Sample 1 and Sample 2 point at the SAME physical block 2. ref_count = 2.",
+        narration: "Because the two samples share the same prompt, vLLM only allocates ONE physical block for both. Both block tables have their logical[0] pointing at physical block 2. The block's <strong>ref_count is 2</strong>: two sequences reference it.",
+        paperTerms: [
+          { term: 'block sharing at prompt phase', plain: 'the KEY insight: the prompt KV cache is identical for all N samples, so it should be stored once, not N times' }
+        ],
+        action: { type: 'shared-prompt-multi', requestIds: ['A1', 'A2'], physicalBlocks: [2] }
+      },
+      {
+        title: 'Sample 1 generates "years": needs a new block',
+        desc: "Sample 1 generates 'years'. Physical block 2 is full (4/4). Sample 1 gets a new block (0) for its output.",
+        narration: "Sample 1 diverges. It gets its OWN new physical block 0 for 'years'. Sample 2's block table is unaffected (still just points at block 2). Block 2's ref_count is still 2 (both samples still need the prompt).",
+        action: { type: 'gen', requestId: 'A1', token: 'years', newBlockPhysIdx: 0 }
+      },
+      {
+        title: 'Sample 2 generates "days": needs a new block',
+        desc: "Sample 2 generates its own next token 'days'. Gets block 6 for its output.",
+        narration: "Sample 2 also diverges and gets its own physical block 6. Now both samples have independent generation blocks, but they STILL share physical block 2 (the prompt). ref_count of block 2 remains 2. This is the memory win: 4 prompt tokens stored once, not twice.",
+        action: { type: 'gen', requestId: 'A2', token: 'days', newBlockPhysIdx: 6 }
+      },
+      {
+        title: 'Sample 1 generates "ago,"',
+        desc: "Sample 1's block 0 has room. Slot 2.",
+        narration: "Sample 1's block 0 is now at 2/4. Prompt block 2 still shared; hasn't been touched during generation.",
+        action: { type: 'gen', requestId: 'A1', token: 'ago,' }
+      },
+      {
+        title: 'Sample 2 generates "later,"',
+        desc: "Sample 2's block 6 has room. Slot 2.",
+        narration: "Sample 2's block 6 at 2/4. Both samples now have 5 total tokens each (4 prompt shared + 1 unique so far), yet vLLM only uses 3 physical blocks (2, 0, 6) = 12 slots. Without sharing you'd need 4 blocks: 2 blocks per sample × 2 samples.",
+        paperTerms: [
+          { term: 'memory savings', plain: 'the paper reports 55% memory savings on parallel sampling workloads. That efficiency comes from exactly what you\'re seeing here' }
+        ],
+        action: { type: 'gen', requestId: 'A2', token: 'later,' }
+      },
+      {
+        title: 'Sample 1 generates "our"',
+        desc: "Sample 1's block 0, slot 3.",
+        narration: "Sample 1's block 0 at 3/4. Continuing independently.",
+        action: { type: 'gen', requestId: 'A1', token: 'our' }
+      },
+      {
+        title: 'Sample 2 generates "we"',
+        desc: "Sample 2's block 6, slot 3.",
+        narration: "Sample 2's block 6 at 3/4. Both samples generating in parallel, both benefiting from the shared prompt. The block table indirection makes this trivial.",
+        action: { type: 'gen', requestId: 'A2', token: 'we' }
+      }
+    ]
+  },
+  3: {
+    info: "Copy-on-write (CoW): when two samples share a PARTIALLY-filled block and one wants to write to it, vLLM copies the block first. This is annotated inside the paper's Figure 8 (parallel sampling example), where sample A1 diverges from A2 mid-block.",
+    paperTerms: {
+      overview: [
+        { term: 'copy-on-write (CoW)', plain: 'classic OS-level technique: pretend to share, actually copy only when someone tries to write (paper §4.3)' },
+        { term: 'ref_count > 1', plain: 'a block with ref_count > 1 is shared. Writing to it triggers a copy so the other referrer isn\'t affected' },
+        { term: 'the write is the trigger', plain: 'reads on shared blocks are free. Only writes require the copy. As long as sequences only read, everything stays shared' }
+      ]
+    },
+    requests: [
+      { id: 'S1', color: 'req-a', promptTokens: ['def','fib'], label: 'Sample 1' },
+      { id: 'S2', color: 'req-b', promptTokens: ['def','fib'], label: 'Sample 2' }
+    ],
+    steps: [
+      {
+        title: "Prompt loads for both samples: PARTIAL block (ref_count = 2)",
+        desc: "Prompt 'def fib' = 2 tokens. Only 2 of the 4 slots in block 1 are filled. Both samples share physical block 1. ref_count = 2. Empty slots remain in the shared block; that's what makes CoW interesting.",
+        narration: "Setup for the CoW demo. Both samples' block tables point at physical block 1. The block has 2 filled slots and <strong>2 empty slots</strong>. Because the prompt is short and doesn't fill the block, the empty slots will need to hold generated tokens, and that's where CoW comes in.",
+        action: { type: 'shared-prompt-multi', requestIds: ['S1', 'S2'], physicalBlocks: [1] }
+      },
+      {
+        title: 'Sample 1 wants to write "(n):": CoW TRIGGERS',
+        desc: "Sample 1 wants to append a token to a block whose ref_count is 2. vLLM detects the shared block, ALLOCATES a fresh block (block 3), COPIES the 2 prompt tokens into it, appends '(n):', and redirects Sample 1's block table to block 3. Block 1's ref_count drops to 1.",
+        narration: "This is <strong>the copy-on-write moment</strong>. Before Sample 1 could write, vLLM checked: is this block shared? Yes (ref_count=2). So it copied block 1's contents (`def`, `fib`) into a new block 3, appended '(n):' at slot 3, and pointed Sample 1's block table at block 3. Block 1's ref_count is now 1 (only Sample 2 still uses it). This is the CoW annotation in Figure 8 of the paper.",
+        paperTerms: [
+          { term: 'divergent write', plain: 'sample 1 needed to write different content than sample 2 might. CoW isolates their writes into different physical blocks' },
+          { term: 'ref_count decrement', plain: 'after CoW, the original block\'s ref_count drops. If it reaches 0 it can be reclaimed' }
+        ],
+        action: { type: 'cow-gen', requestId: 'S1', token: '(n):', newBlockPhysIdx: 3, sourcePhysIdx: 1 }
+      },
+      {
+        title: 'Sample 2 writes ":": NO copy needed',
+        desc: "Sample 2 now wants to append its own token. It checks block 1's ref_count: it's 1 (only Sample 2 references it). So Sample 2 can write directly into slot 3 of block 1. No copy needed; Sample 1 no longer shares that block.",
+        narration: "This is the flip side of CoW: because Sample 1 was already copied out, block 1 now has ref_count=1 and is effectively Sample 2's private block. So Sample 2 writes ':' directly at slot 3. No allocation, no copy. This is the elegance of ref-counting.",
+        action: { type: 'gen', requestId: 'S2', token: ':' }
+      },
+      {
+        title: 'Sample 1 writes " if": its block, no CoW',
+        desc: "Sample 1's current block (block 3) has ref_count=1, so no CoW. Writes into slot 4 of block 3.",
+        narration: "Sample 1 continues writing to its own copy (block 3). Slot 4 fills, block 3 is now 4/4 full. Next token will need a new block.",
+        action: { type: 'gen', requestId: 'S1', token: ' if' }
+      },
+      {
+        title: 'Sample 2 writes " n": block 1 fills up',
+        desc: "Sample 2 writes into slot 4 of block 1. Block 1 is now 4/4 full.",
+        narration: "Sample 2's block 1 fully filled. Both samples now have 4 tokens each (2 prompt + 2 generated). Sample 1 lives in block 3, Sample 2 lives in block 1. No memory duplicated, no wasted slots.",
+        action: { type: 'gen', requestId: 'S2', token: ' n' }
+      },
+      {
+        title: 'Sample 1 wants "==": needs a NEW block',
+        desc: "Sample 1's block 3 is full. Grabs a new physical block (block 4).",
+        narration: "Normal generation from here. CoW's job is done. Each sample now has its own private chain of blocks. Contrast with contiguous: two samples would have needed 2×16=32 slots reserved upfront. Paged: 3 blocks × 4 = 12 slots.",
+        action: { type: 'gen', requestId: 'S1', token: '==', newBlockPhysIdx: 4 }
+      }
+    ]
+  },
+  4: {
+    info: "Two totally separate requests (different prompts, different users) running at the same time in the shared physical pool. This is the paper's Figure 7 (storing the KV cache of two requests at the same time in vLLM).",
+    paperTerms: {
+      overview: [
+        { term: 'iteration-level scheduling', plain: 'vLLM interleaves requests at the token level, not at the request level (paper §4.2). This scenario shows that interleaving in the memory layout' },
+        { term: 'no ref sharing', plain: 'different prompts → no block sharing possible. But block table indirection still lets vLLM pack requests densely into any free blocks' }
+      ]
+    },
+    requests: [
+      { id: 'A', color: 'req-a', promptTokens: ['The','cat','sat','on','the'] },
+      { id: 'B', color: 'req-b', promptTokens: ['Explain','recursion'] }
+    ],
+    steps: [
+      {
+        title: "Request A arrives",
+        desc: "5 prompt tokens. Needs 2 blocks (ceil(5/4)). Gets blocks 0, 1.",
+        narration: "Request A takes blocks 0 and 1. Block 0 is full (4/4), block 1 has 1 token (1/4).",
+        action: { type: 'prompt', requestId: 'A', physicalBlocks: [0, 1] }
+      },
+      {
+        title: "Request B arrives (interleaved)",
+        desc: "2 prompt tokens. Needs 1 block. Gets block 2.",
+        narration: "Request B is a totally different sequence, but it lives in the <strong>same physical pool</strong> as A. Block 2 is now B's, half-filled (2/4). This is the KEY thing contiguous can't do: B gets exactly 1 block, not the 16 slots per request an old system would reserve.",
+        action: { type: 'prompt', requestId: 'B', physicalBlocks: [2] }
+      },
+      {
+        title: 'A generates "mat"',
+        desc: "Room in A's block 1, slot 2. Goes there.",
+        narration: "A's block 1 now at 2/4.",
+        action: { type: 'gen', requestId: 'A', token: 'mat' }
+      },
+      {
+        title: 'B generates "in"',
+        desc: "Room in B's block 2, slot 3. Goes there.",
+        narration: "Both requests grow independently. B's block 2 at 3/4. Compare wastes: paged wastes just the empty slots in the last blocks. Contiguous wastes everything above each request's current length.",
+        action: { type: 'gen', requestId: 'B', token: 'in' }
+      },
+      {
+        title: 'A generates "and" (fills its block)',
+        desc: "A's block 1, slot 3. Now A's block 1 at 3/4.",
+        narration: "A's block 1: 3/4.",
+        action: { type: 'gen', requestId: 'A', token: 'and' }
+      },
+      {
+        title: 'B generates "3" (fills its block)',
+        desc: "B's block 2, slot 4. B's block 2 is now FULL.",
+        narration: "B's block 2 is full (4/4). B will need a new block next.",
+        action: { type: 'gen', requestId: 'B', token: '3' }
+      },
+      {
+        title: 'B generates "sentences" (NEW BLOCK for B)',
+        desc: "B's block 2 is full. vLLM grabs block 3 for B.",
+        narration: "B now owns blocks 2 and 3. A still owns blocks 0 and 1. All four blocks are next to each other in the pool but belong to different requests. The block table is the only thing keeping them separate.",
+        action: { type: 'gen', requestId: 'B', token: 'sentences' }
+      },
+      {
+        title: 'A generates "purred" (fills A\'s block)',
+        desc: "A's block 1, slot 4. A's block 1 is now full.",
+        narration: "A's block 1 full at 4/4. A will need a new block next. Interleaved growth of two requests in the same physical pool is the whole point of PagedAttention's memory efficiency.",
+        action: { type: 'gen', requestId: 'A', token: 'purred' }
+      }
+    ]
+  }
+};
+
+// state
+let currentScenario = 1;
+let currentStep = 0;
+let state = null;
+let autoInterval = null;
+
+function initState(scen) {
+  return {
+    // physical blocks: array of { owner: reqId, tokens: [str,...] } or null if free
+    physBlocks: Array(NUM_BLOCKS).fill(null),
+    // per-request block tables: reqId -> [{ physIdx, filled }]
+    blockTables: {},
+    // per-request tokens generated (beyond prompt)
+    generated: {},
+    // for shared prefix
+    sharedRefs: {}, // physIdx -> Set of reqIds that reference it
+    lastAction: null,
+  };
+}
+
+function loadScenario(n) {
+  currentScenario = n;
+  currentStep = 0;
+  state = initState(scenarios[n]);
+  document.querySelectorAll('.switcher button').forEach(b => b.classList.remove('active'));
+  document.getElementById('btn-scenario-' + n).classList.add('active');
+  document.getElementById('scenario-info').textContent = scenarios[n].info;
+  scenarios[n].requests.forEach(r => {
+    state.blockTables[r.id] = [];
+    state.generated[r.id] = [];
+  });
+  render();
+}
+
+
+function reset() {
+  loadScenario(currentScenario);
+}
+
+function stepForward() {
+  const scen = scenarios[currentScenario];
+  if (currentStep >= scen.steps.length) return;
+  const step = scen.steps[currentStep];
+  if (step.action) applyAction(step.action, step);
+  currentStep++;
+  render();
+}
+
+function stepBack() {
+  if (currentStep === 0) return;
+  const targetStep = currentStep - 1;
+  const savedScenario = currentScenario;
+  loadScenario(savedScenario);
+  for (let i = 0; i < targetStep; i++) {
+    const step = scenarios[savedScenario].steps[i];
+    applyAction(step.action || {}, step);
+    currentStep++;
+  }
+  render();
+}
+
+function autoPlay() {
+  if (autoInterval) {
+    clearInterval(autoInterval);
+    autoInterval = null;
+    document.getElementById('btn-auto').textContent = '▶ Auto';
+    return;
+  }
+  document.getElementById('btn-auto').textContent = '⏸ Pause';
+  autoInterval = setInterval(() => {
+    if (currentStep >= scenarios[currentScenario].steps.length) {
+      clearInterval(autoInterval);
+      autoInterval = null;
+      document.getElementById('btn-auto').textContent = '▶ Auto';
+      return;
+    }
+    stepForward();
+  }, 1400);
+}
+
+function applyAction(action, step) {
+  state.lastAction = null;
+  if (!action || !action.type) return;
+  const req = scenarios[currentScenario].requests.find(r => r.id === action.requestId);
+
+  if (action.type === 'prompt') {
+    // load prompt tokens into given physical blocks
+    const tokens = req.promptTokens;
+    const bt = [];
+    let tokenIdx = 0;
+    for (const physIdx of action.physicalBlocks) {
+      state.physBlocks[physIdx] = { owner: req.id, tokens: [] };
+      let filled = 0;
+      for (let s = 0; s < BLOCK_SIZE && tokenIdx < tokens.length; s++, tokenIdx++) {
+        state.physBlocks[physIdx].tokens.push(tokens[tokenIdx]);
+        filled++;
+      }
+      bt.push({ physIdx, filled });
+      state.sharedRefs[physIdx] = new Set([req.id]);
+    }
+    state.blockTables[req.id] = bt;
+    state.lastAction = { type: 'prompt', reqId: req.id, physicalBlocks: action.physicalBlocks };
+  }
+
+  if (action.type === 'shared-prompt') {
+    // B points at A's blocks (copy-on-write / prefix sharing)
+    const bt = [];
+    for (const physIdx of action.physicalBlocks) {
+      const existing = state.physBlocks[physIdx];
+      bt.push({ physIdx, filled: existing.tokens.length });
+      state.sharedRefs[physIdx].add(req.id);
+    }
+    state.blockTables[req.id] = bt;
+    state.lastAction = { type: 'shared', reqId: req.id, physicalBlocks: action.physicalBlocks };
+  }
+
+  if (action.type === 'shared-prompt-multi') {
+    // All requestIds share the same physical blocks (parallel sampling scenario)
+    // The physical blocks were already created by loading the first request; if not, create them here
+    const scen = scenarios[currentScenario];
+    for (const physIdx of action.physicalBlocks) {
+      // Initialize block if not present
+      if (!state.physBlocks[physIdx]) {
+        const firstReq = scen.requests.find(r => r.id === action.requestIds[0]);
+        state.physBlocks[physIdx] = { owner: firstReq.id, tokens: [] };
+        // fill with prompt tokens for this block
+        let idx = action.physicalBlocks.indexOf(physIdx) * BLOCK_SIZE;
+        for (let s = 0; s < BLOCK_SIZE && idx < firstReq.promptTokens.length; s++, idx++) {
+          state.physBlocks[physIdx].tokens.push(firstReq.promptTokens[idx]);
+        }
+        state.sharedRefs[physIdx] = new Set();
+      }
+    }
+    // Point all requests' block tables at these blocks
+    for (const reqId of action.requestIds) {
+      const bt = action.physicalBlocks.map(physIdx => ({
+        physIdx,
+        filled: state.physBlocks[physIdx].tokens.length
+      }));
+      state.blockTables[reqId] = bt;
+      for (const physIdx of action.physicalBlocks) {
+        state.sharedRefs[physIdx].add(reqId);
+      }
+    }
+    state.lastAction = { type: 'shared-multi', reqIds: action.requestIds, physicalBlocks: action.physicalBlocks };
+  }
+
+  if (action.type === 'cow-demo') {
+    // Illustrative: don't actually mutate. Just flag it for the render layer.
+    state.lastAction = { type: 'cow-demo', reqId: action.requestId };
+  }
+
+  if (action.type === 'cow-gen') {
+    // Copy-on-write: requesting sequence needs to write to a shared block.
+    // 1) Allocate new physical block (from action.newBlockPhysIdx or lowest free).
+    // 2) Copy tokens from the shared source block into the new block.
+    // 3) Append the new token to the new block.
+    // 4) Redirect this request's LAST block-table entry from source to the new block.
+    // 5) Decrement ref_count on the source block.
+    const bt = state.blockTables[req.id];
+    const sourcePhysIdx = action.sourcePhysIdx;
+    const sourceBlock = state.physBlocks[sourcePhysIdx];
+    if (!sourceBlock) { alert(`CoW error: source block ${sourcePhysIdx} is empty`); return; }
+    if (!state.sharedRefs[sourcePhysIdx] || state.sharedRefs[sourcePhysIdx].size < 2) {
+      alert(`CoW error: source block ${sourcePhysIdx} isn't shared (ref_count=${state.sharedRefs[sourcePhysIdx]?.size || 1})`);
+      return;
+    }
+    // Allocate new block
+    let newIdx;
+    if (typeof action.newBlockPhysIdx === 'number') {
+      if (state.physBlocks[action.newBlockPhysIdx] !== null) {
+        alert(`CoW error: prescribed block ${action.newBlockPhysIdx} is not free`);
+        return;
+      }
+      newIdx = action.newBlockPhysIdx;
+    } else {
+      newIdx = state.physBlocks.findIndex(b => b === null);
+    }
+    if (newIdx === -1) { alert('out of physical blocks!'); return; }
+    // Copy tokens
+    state.physBlocks[newIdx] = { owner: req.id, tokens: sourceBlock.tokens.slice() };
+    // Append new token
+    state.physBlocks[newIdx].tokens.push(action.token);
+    state.sharedRefs[newIdx] = new Set([req.id]);
+    // Decrement source ref_count
+    state.sharedRefs[sourcePhysIdx].delete(req.id);
+    // Redirect this request's last block-table entry to the new block
+    // (find the entry whose physIdx == sourcePhysIdx, should be the last one for typical CoW)
+    for (const entry of bt) {
+      if (entry.physIdx === sourcePhysIdx) {
+        entry.physIdx = newIdx;
+        entry.filled = state.physBlocks[newIdx].tokens.length;
+        break;
+      }
+    }
+    state.generated[req.id].push(action.token);
+    state.lastAction = { type: 'cow-gen', reqId: req.id, physIdx: newIdx, sourcePhysIdx, slot: state.physBlocks[newIdx].tokens.length - 1, newBlock: true };
+  }
+
+  if (action.type === 'gen') {
+    // find last block table entry for this request
+    const bt = state.blockTables[req.id];
+    let last = bt[bt.length - 1];
+    let newBlock = false;
+    if (!last || last.filled >= BLOCK_SIZE) {
+      // need a new physical block. If the action prescribes one, use it (must be free); else grab lowest free.
+      let freeIdx;
+      if (typeof action.newBlockPhysIdx === 'number') {
+        if (state.physBlocks[action.newBlockPhysIdx] !== null) {
+          alert(`scenario error: prescribed block ${action.newBlockPhysIdx} is not free`);
+          return;
+        }
+        freeIdx = action.newBlockPhysIdx;
+      } else {
+        freeIdx = state.physBlocks.findIndex(b => b === null);
+      }
+      if (freeIdx === -1) { alert('out of physical blocks!'); return; }
+      state.physBlocks[freeIdx] = { owner: req.id, tokens: [] };
+      state.sharedRefs[freeIdx] = new Set([req.id]);
+      last = { physIdx: freeIdx, filled: 0 };
+      bt.push(last);
+      newBlock = true;
+    }
+    state.physBlocks[last.physIdx].tokens.push(action.token);
+    last.filled++;
+    state.generated[req.id].push(action.token);
+    state.lastAction = { type: 'gen', reqId: req.id, physIdx: last.physIdx, slot: last.filled - 1, newBlock };
+  }
+}
+
+
+
+// Show fake but consistent Q, K, V, scores for head 0, GPU 0.
+// values are illustrative. the point is the SHAPE of the math, not real numbers.
+
+
+
+
+function render() {
+  const scen = scenarios[currentScenario];
+
+  // step title/desc
+  if (currentStep === 0) {
+    document.getElementById('step-title').textContent = 'Step 0: Initial state';
+    document.getElementById('step-desc').textContent = scen.info;
+    document.getElementById('narration').innerHTML = 'Click <strong>Step forward</strong> to begin.';
+  } else {
+    const step = scen.steps[currentStep - 1];
+    document.getElementById('step-title').textContent = `Step ${currentStep}: ${step.title}`;
+    document.getElementById('step-desc').textContent = step.desc;
+    document.getElementById('narration').innerHTML = step.narration;
+  }
+
+  document.getElementById('counter').textContent = `step ${currentStep} of ${scen.steps.length}`;
+  document.getElementById('btn-back').disabled = currentStep === 0;
+  document.getElementById('btn-forward').disabled = currentStep >= scen.steps.length;
+
+
+  // prompts
+  const promptsEl = document.getElementById('prompts');
+  promptsEl.innerHTML = '';
+  scen.requests.forEach(req => {
+    const wrap = document.createElement('div');
+    wrap.style.marginBottom = '6px';
+    const label = document.createElement('div');
+    label.style.fontSize = '11px';
+    label.style.color = 'var(--muted)';
+    label.style.marginBottom = '3px';
+    const displayName = req.label ? `${req.label} (${req.id})` : `Request ${req.id}`;
+    label.innerHTML = `<span style="color:${cssVar(req.color)};font-weight:600;">${displayName}</span>`;
+    wrap.appendChild(label);
+    const tokWrap = document.createElement('div');
+    tokWrap.className = 'prompt-tokens';
+    req.promptTokens.forEach(t => {
+      const span = document.createElement('span');
+      span.className = 'token prompt';
+      span.textContent = t;
+      tokWrap.appendChild(span);
+    });
+    (state.generated[req.id] || []).forEach((t, i) => {
+      const span = document.createElement('span');
+      span.className = 'token generated';
+      if (state.lastAction && state.lastAction.type === 'gen' && state.lastAction.reqId === req.id && i === state.generated[req.id].length - 1) {
+        span.classList.add('new');
+      }
+      span.textContent = t;
+      tokWrap.appendChild(span);
+    });
+    wrap.appendChild(tokWrap);
+    promptsEl.appendChild(wrap);
+  });
+
+  // block tables
+  const btEl = document.getElementById('block-tables');
+  btEl.innerHTML = '';
+  scen.requests.forEach(req => {
+    const bt = state.blockTables[req.id];
+    if (!bt || bt.length === 0) return;
+    const title = document.createElement('div');
+    title.style.fontSize = '11px';
+    title.style.color = cssVar(req.color);
+    title.style.fontWeight = '600';
+    title.style.marginBottom = '4px';
+    title.textContent = req.label ? `${req.label} (${req.id})` : `Request ${req.id}`;
+    btEl.appendChild(title);
+    const table = document.createElement('table');
+    table.className = 'bt';
+    table.innerHTML = '<thead><tr><th>logical</th><th>physical</th><th>filled</th></tr></thead>';
+    const tbody = document.createElement('tbody');
+    bt.forEach((entry, i) => {
+      const tr = document.createElement('tr');
+      const la = state.lastAction;
+      const isNew = la && (
+        (la.type === 'prompt' && la.reqId === req.id && la.physicalBlocks.includes(entry.physIdx)) ||
+        (la.type === 'shared' && la.reqId === req.id && la.physicalBlocks.includes(entry.physIdx)) ||
+        (la.type === 'shared-multi' && la.reqIds && la.reqIds.includes(req.id) && la.physicalBlocks.includes(entry.physIdx)) ||
+        (la.type === 'gen' && la.reqId === req.id && la.newBlock && la.physIdx === entry.physIdx) ||
+        (la.type === 'cow-gen' && la.reqId === req.id && la.physIdx === entry.physIdx)
+      );
+      if (isNew) tr.className = 'new-row';
+      const shared = state.sharedRefs[entry.physIdx] && state.sharedRefs[entry.physIdx].size > 1;
+      tr.innerHTML = `
+        <td>${i}</td>
+        <td class="phys-num">${entry.physIdx}${shared ? ' <span style="color:var(--good);font-size:10px;">(shared)</span>' : ''}</td>
+        <td class="fill-count ${entry.filled === BLOCK_SIZE ? 'full' : entry.filled > 0 ? 'partial' : ''}">${entry.filled}/${BLOCK_SIZE}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    btEl.appendChild(table);
+    btEl.appendChild(document.createElement('div')).style.height = '8px';
+  });
+
+  // kv cache grid
+  const grid = document.getElementById('blocks-grid');
+  grid.innerHTML = '';
+  for (let i = 0; i < NUM_BLOCKS; i++) {
+    const wrap = document.createElement('div');
+    wrap.className = 'physblock';
+    const block = state.physBlocks[i];
+    if (state.lastAction && (
+      (state.lastAction.type === 'prompt' && state.lastAction.physicalBlocks.includes(i)) ||
+      (state.lastAction.type === 'shared' && state.lastAction.physicalBlocks.includes(i)) ||
+      (state.lastAction.type === 'shared-multi' && state.lastAction.physicalBlocks.includes(i)) ||
+      (state.lastAction.type === 'gen' && state.lastAction.physIdx === i) ||
+      (state.lastAction.type === 'cow-gen' && (state.lastAction.physIdx === i || state.lastAction.sourcePhysIdx === i))
+    )) {
+      wrap.classList.add('highlight');
+    }
+    const label = document.createElement('div');
+    label.className = 'physblock-label';
+    if (block) {
+      const owner = block.owner;
+      const req = scen.requests.find(r => r.id === owner);
+      const refCount = state.sharedRefs[i] ? state.sharedRefs[i].size : 1;
+      let ownerLabel = req ? `req ${owner}` : owner;
+      let refBadge = refCount > 1 ? `<span class="refcount-badge">ref=${refCount}</span>` : '';
+      label.innerHTML = `block ${i} · <span style="color:${cssVar(req ? req.color : 'req-a')};">${ownerLabel}</span>${refBadge}`;
+      // check if shared
+      if (state.sharedRefs[i] && state.sharedRefs[i].size > 1) {
+        const others = Array.from(state.sharedRefs[i]).filter(x => x !== owner);
+        if (others.length > 0) {
+          label.innerHTML += ` <span style="color:var(--good);font-size:9px;">shared: ${others.join(',')}</span>`;
+        }
+      }
+    } else {
+      label.textContent = `block ${i} (free)`;
+    }
+    wrap.appendChild(label);
+    const slots = document.createElement('div');
+    slots.className = 'slots';
+    for (let s = 0; s < BLOCK_SIZE; s++) {
+      const slot = document.createElement('div');
+      slot.className = 'slot';
+      if (block && s < block.tokens.length) {
+        const req = scen.requests.find(r => r.id === block.owner);
+        slot.classList.add('filled', req.color);
+        slot.textContent = block.tokens[s];
+        slot.title = block.tokens[s];
+        if (state.lastAction && (state.lastAction.type === 'gen' || state.lastAction.type === 'cow-gen') && state.lastAction.physIdx === i && state.lastAction.slot === s) {
+          slot.classList.add('new-slot');
+        }
+      }
+      slots.appendChild(slot);
+    }
+    wrap.appendChild(slots);
+    grid.appendChild(wrap);
+  }
+
+  // arrow map
+  const map = document.getElementById('arrow-map');
+  const lines = [];
+  scen.requests.forEach(req => {
+    const bt = state.blockTables[req.id];
+    if (!bt || bt.length === 0) return;
+    bt.forEach((entry, i) => {
+      lines.push(`req ${req.id} · logical[${i}] <span class="arrow">→</span> physical[${entry.physIdx}] (${entry.filled}/${BLOCK_SIZE})`);
+    });
+  });
+  map.innerHTML = lines.length ? lines.map(l => `<div class="arrow-line">${l}</div>`).join('') : '(no requests yet)';
+
+  // usage/waste comparison
+  updateComparison();
+
+  // paper terms panel
+  renderPaperTerms();
+}
+
+function renderPaperTerms() {
+  const scen = scenarios[currentScenario];
+  const panel = document.getElementById('paper-terms');
+  const parts = [];
+  // scenario-level terms
+  if (scen.paperTerms && scen.paperTerms.overview) {
+    parts.push('<p style="color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">scenario terms</p>');
+    for (const t of scen.paperTerms.overview) {
+      parts.push(`<p><span class="term">${escapeHtml(t.term)}</span>: <span class="plain">${t.plain}</span></p>`);
+    }
+  }
+  // step-level terms
+  if (currentStep > 0) {
+    const step = scen.steps[currentStep - 1];
+    if (step.paperTerms && step.paperTerms.length > 0) {
+      parts.push('<p style="color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:0.5px;margin-top:12px;margin-bottom:8px;">this step</p>');
+      for (const t of step.paperTerms) {
+        parts.push(`<p><span class="term">${escapeHtml(t.term)}</span>: <span class="plain">${t.plain}</span></p>`);
+      }
+    }
+  }
+  panel.innerHTML = parts.join('') || '<p>Terminology cheat-sheet updates as you step through the scenarios.</p>';
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function updateComparison() {
+  const scen = scenarios[currentScenario];
+  // paged: sum of slots used vs total slots reserved
+  let pagedUsed = 0, pagedReserved = 0;
+  // per-physical-block, count unique tokens filled and total slots
+  for (let i = 0; i < NUM_BLOCKS; i++) {
+    const b = state.physBlocks[i];
+    if (b) {
+      pagedReserved += BLOCK_SIZE;
+      pagedUsed += b.tokens.length;
+    }
+  }
+
+  // contiguous: each active request pre-reserves MAX_LEN slots
+  let contUsed = 0, contReserved = 0;
+  scen.requests.forEach(req => {
+    const bt = state.blockTables[req.id];
+    if (bt && bt.length > 0) {
+      contReserved += MAX_LEN_CONTIGUOUS;
+      // used = prompt + generated
+      contUsed += req.promptTokens.length + (state.generated[req.id]?.length || 0);
+    }
+  });
+
+  const totalSlots = NUM_BLOCKS * BLOCK_SIZE;
+  const contMax = scen.requests.length * MAX_LEN_CONTIGUOUS;
+
+  document.getElementById('paged-used-bar').style.width = `${(pagedUsed / totalSlots) * 100}%`;
+  document.getElementById('paged-used-bar').textContent = `${pagedUsed}`;
+  document.getElementById('paged-waste-bar').style.width = `${((pagedReserved - pagedUsed) / totalSlots) * 100}%`;
+  document.getElementById('paged-waste-bar').textContent = `${pagedReserved - pagedUsed}`;
+  document.getElementById('paged-used-val').textContent = `${pagedUsed}/${pagedReserved} slots`;
+  document.getElementById('paged-waste-val').textContent = `${pagedReserved - pagedUsed} wasted`;
+
+  document.getElementById('cont-used-bar').style.width = `${(contUsed / contMax) * 100}%`;
+  document.getElementById('cont-used-bar').textContent = `${contUsed}`;
+  document.getElementById('cont-waste-bar').style.width = `${((contReserved - contUsed) / contMax) * 100}%`;
+  document.getElementById('cont-waste-bar').textContent = `${contReserved - contUsed}`;
+  document.getElementById('cont-used-val').textContent = `${contUsed}/${contReserved} slots`;
+  document.getElementById('cont-waste-val').textContent = `${contReserved - contUsed} wasted`;
+}
+
+function cssVar(colorName) {
+  const map = {
+    'req-a': '#38bdf8',
+    'req-b': '#a78bfa',
+    'req-c': '#86efac',
+  };
+  return map[colorName] || '#fff';
+}
+
+// init
+loadScenario(1);
+
+// keyboard shortcuts
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); stepForward(); }
+  else if (e.key === 'ArrowLeft') { e.preventDefault(); stepBack(); }
+  else if (e.key === 'r') reset();
+});
+
+// when embedded in an iframe, post the actual content height to the parent
+// so it can size the iframe to fit and avoid a scrollbar. only runs when
+// actually inside a frame (window !== top).
+(function () {
+  if (window.parent === window) return;
+  let lastReported = 0;
+  function postHeight() {
+    // measure the outermost content container, not body.scrollHeight.
+    // inside an iframe body.scrollHeight is clamped to the viewport, which
+    // creates a feedback loop with the parent's resize handler.
+    const layout = document.querySelector('.layout');
+    if (!layout) return;
+    const bodyStyle = getComputedStyle(document.body);
+    const paddingBottom = parseFloat(bodyStyle.paddingBottom) || 0;
+    const rect = layout.getBoundingClientRect();
+    // when the page isn't scrolled inside the iframe (it never is here),
+    // rect.top is the space above the layout (body padding-top). rect.bottom
+    // is the layout's end. add body padding-bottom for the full content box.
+    const h = Math.ceil(rect.bottom + paddingBottom);
+    // ignore no-op reports to keep noise down.
+    if (Math.abs(h - lastReported) < 2) return;
+    lastReported = h;
+    window.parent.postMessage({ type: 'visualizer-height', height: h }, '*');
+  }
+  // report on load and after any interaction that could change layout.
+  // don't observe body size or window resize inside the frame; both track
+  // the iframe's viewport (which the parent controls), not the content.
+  window.addEventListener('load', () => setTimeout(postHeight, 0));
+  document.addEventListener('click', () => setTimeout(postHeight, 60));
+})();
+</script>
+</body>
+</html>
