@@ -54,6 +54,15 @@
     {{ partial "google_analytics.html" . }}
     {{- end -}}
 
+    {{/* goatcounter analytics. production-only so `hugo server -D` never
+         beacons real pageviews to the dashboard. count.js also self-skips
+         localhost/private nets by default, so this guard is belt+suspenders.
+         dashboard: https://nilekh.goatcounter.com */}}
+    {{- if hugo.IsProduction | or (eq site.Params.env "production") }}
+    <script data-goatcounter="https://nilekh.goatcounter.com/count"
+            async src="//gc.zgo.at/count.js"></script>
+    {{- end -}}
+
     {{/* sidebar toc override: stylesheet + scrollspy js (loaded on every page; single.html decides whether to render the sidebar). */}}
     <link rel="stylesheet" href="{{ "/css/sidebar-toc.css" | relURL }}">
     <script defer src="{{ "/js/toc-scrollspy.js" | relURL }}"></script>
