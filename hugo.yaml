@@ -1,6 +1,6 @@
 baseURL: "https://nilekhc.github.io/"
 locale: en-us
-title: "nilekh"
+title: "Nilekh Chaudhari"
 theme: hugo-blog-awesome
 
 enableRobotsTXT: true
@@ -26,8 +26,8 @@ markup:
     guessSyntax: true
 
 params:
-  sitename: "nilekh"
-  description: "notes on inference"
+  sitename: "Nilekh Chaudhari"
+  description: "Nilekh Chaudhari's blog. Notes on LLM inference, Kubernetes, and systems engineering."
   defaultColor: dark
   showToc: true
   showTags: false
