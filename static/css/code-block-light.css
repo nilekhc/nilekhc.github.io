@@ -1,0 +1,50 @@
+/* code block theme override for both modes.
+ *
+ * hugo's chroma highlighter emits inline `style="background:#0d1117; color:#e6edf3"`
+ * attributes directly on every `<pre>` inside a `.highlight` wrapper. inline
+ * styles beat external css by specificity, so any regular `pre { ... }` rule
+ * without `!important` loses. that's why the block was reading as an ill-fitting
+ * dark cutout in both themes: too bright on light mode, too dark on dark mode
+ * (chroma's `#0d1117` is DARKER than the theme's own page background `#131418`,
+ * so the block sinks below the page and its edges disappear).
+ *
+ * fix in both directions:
+ * - light mode: soft grey block on white page.
+ * - dark  mode: lift the block bg a touch ABOVE the page bg, matching the
+ *   theme's own inline-code color `$dark-inline-code-bg: #2d2d2d`. same tone
+ *   as `<code>` inside prose, so the visual language is consistent.
+ */
+
+/* dark mode: block bg lifted above the page as a warm-navy panel.
+ * quieter than a saturated blue-slate, sits close to the page bg but with
+ * enough lift that the block edges still read. */
+html.dark .highlight pre,
+html.dark pre {
+  background-color: #1a1f2e !important;
+  color: #e6edf3 !important;
+}
+html.dark .highlight pre code,
+html.dark pre > code {
+  color: #e6edf3 !important;
+}
+
+/* light mode: block bg dropped below the page so the box reads as an inset panel,
+ * plus a faint border because a nearly-white block on a white page needs one. */
+html.light .highlight pre,
+html.light pre {
+  background-color: #f5f6fa !important;
+  color: #24292f !important;
+  border: 1px solid #d4d9e5;
+}
+html.light .highlight pre code,
+html.light pre > code {
+  color: #24292f !important;
+}
+
+/* light-mode token colors from chroma were tuned for a dark bg and burn on
+ * light grey. reset them all to inherit so the light block reads calm and
+ * monotone. dark mode keeps its full syntax palette since chroma's token
+ * colors work fine on the lifted #2d2d2d bg. */
+html.light .highlight pre span[style] {
+  color: inherit !important;
+}

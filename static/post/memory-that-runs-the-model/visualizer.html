@@ -22,6 +22,77 @@
     --slot-req-a: #38bdf8;
     --slot-req-b: #a78bfa;
     --slot-req-c: #86efac;
+    /* token pill palette. dark navy for prompt, cyan for generated, warm
+     * amber for new. these keep their semantic meaning across themes. */
+    --token-prompt-bg: #1e293b;
+    --token-prompt-border: #334155;
+    --token-prompt-text: #e5e7eb;
+    --token-gen-bg: #164e63;
+    --token-gen-border: #0891b2;
+    --token-gen-text: #a5f3fc;
+    --token-new-bg: #78350f;
+    --token-new-border: #f59e0b;
+    --token-new-text: #fde68a;
+    /* button primary + active scenario switcher. */
+    --btn-primary-bg: #0369a1;
+    --btn-primary-border: #0284c7;
+    --btn-primary-text: #ffffff;
+    /* comparison-bar segment colors (blue used, red waste). */
+    --bar-used: #38bdf8;
+    --bar-used-text: #0f172a;
+    --bar-waste: #fca5a5;
+    --bar-waste-text: #7f1d1d;
+    /* text ink for filled slot pills. dark ink is legible on saturated
+     * accent backgrounds in both modes. */
+    --slot-text-a: #0f172a;
+    --slot-text-b: #1e1b4b;
+    --slot-text-c: #14532d;
+  }
+  /* light theme, inverted to match the blog's own light mode. hues preserved
+   * where possible (request colors keep their cyan/purple/green identity so
+   * scenarios read the same across modes) but saturation is darkened so the
+   * palette reads on a white bg. */
+  html.light {
+    --bg: #ffffff;
+    --panel: #f7f8fb;
+    --panel2: #edf0f7;
+    --border: #d4d9e5;
+    --text: #1a1f2e;
+    --muted: #5a657a;
+    --accent: #0284c7;
+    --accent2: #7c3aed;
+    --good: #16a34a;
+    --bad: #dc2626;
+    --slot-empty: #e5e9f2;
+    --slot-filled: #0284c7;
+    --slot-new: #d97706;
+    --slot-waste: #dc2626;
+    --slot-req-a: #0284c7;
+    --slot-req-b: #7c3aed;
+    --slot-req-c: #16a34a;
+    /* light-mode token pills: soft-tinted backgrounds with darker ink so
+     * they still read as prompt/generated/new but on a white surface. */
+    --token-prompt-bg: #e5e9f2;
+    --token-prompt-border: #cbd5e1;
+    --token-prompt-text: #1a1f2e;
+    --token-gen-bg: #cffafe;
+    --token-gen-border: #0891b2;
+    --token-gen-text: #164e63;
+    --token-new-bg: #fef3c7;
+    --token-new-border: #d97706;
+    --token-new-text: #78350f;
+    --btn-primary-bg: #0284c7;
+    --btn-primary-border: #0369a1;
+    --btn-primary-text: #ffffff;
+    --bar-used: #0284c7;
+    --bar-used-text: #ffffff;
+    --bar-waste: #dc2626;
+    --bar-waste-text: #ffffff;
+    /* on light mode the slot-req bg colors are still saturated, so white
+     * ink reads better than dark for filled slot text. */
+    --slot-text-a: #ffffff;
+    --slot-text-b: #ffffff;
+    --slot-text-c: #ffffff;
   }
   * { box-sizing: border-box; }
   body {
@@ -103,9 +174,9 @@
     font-size: 12px;
     transition: all 0.3s;
   }
-  .token.prompt { background: #1e293b; border-color: #334155; }
-  .token.generated { background: #164e63; border-color: #0891b2; color: #a5f3fc; }
-  .token.new { background: #78350f; border-color: #f59e0b; color: #fde68a; animation: flash 0.5s; }
+  .token.prompt { background: var(--token-prompt-bg); border-color: var(--token-prompt-border); color: var(--token-prompt-text); }
+  .token.generated { background: var(--token-gen-bg); border-color: var(--token-gen-border); color: var(--token-gen-text); }
+  .token.new { background: var(--token-new-bg); border-color: var(--token-new-border); color: var(--token-new-text); animation: flash 0.5s; }
   @keyframes flash {
     0% { background: #fbbf24; color: #000; transform: scale(1.2); }
     100% { background: #78350f; }
@@ -129,7 +200,7 @@
     text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--border);
     font-weight: 600; color: var(--muted); font-size: 11px;
   }
-  table.bt td { padding: 6px; border-bottom: 1px solid #1a2030; }
+  table.bt td { padding: 6px; border-bottom: 1px solid var(--border); }
   table.bt tr.new-row { animation: rowFlash 0.6s; }
   @keyframes rowFlash {
     0% { background: rgba(251, 191, 36, 0.3); }
@@ -172,9 +243,9 @@
     overflow: hidden;
     transition: all 0.3s;
   }
-  .slot.filled { background: var(--slot-req-a); color: #0f172a; }
-  .slot.filled.req-b { background: var(--slot-req-b); color: #1e1b4b; }
-  .slot.filled.req-c { background: var(--slot-req-c); color: #14532d; }
+  .slot.filled { background: var(--slot-req-a); color: var(--slot-text-a); }
+  .slot.filled.req-b { background: var(--slot-req-b); color: var(--slot-text-b); }
+  .slot.filled.req-c { background: var(--slot-req-c); color: var(--slot-text-c); }
   .slot.new-slot { animation: slotFlash 0.6s; }
   @keyframes slotFlash {
     0% { background: var(--slot-new); transform: scale(1.3); }
@@ -195,10 +266,10 @@
     font-size: 13px;
     transition: all 0.15s;
   }
-  button:hover { background: #232939; border-color: var(--accent); }
+  button:hover { background: var(--panel2); border-color: var(--accent); }
   button:disabled { opacity: 0.4; cursor: not-allowed; }
-  button.primary { background: #0369a1; border-color: #0284c7; }
-  button.primary:hover { background: #0284c7; }
+  button.primary { background: var(--btn-primary-bg); border-color: var(--btn-primary-border); color: var(--btn-primary-text); }
+  button.primary:hover { background: var(--btn-primary-border); }
   .step-counter {
     color: var(--muted); font-size: 12px; font-family: monospace;
     margin-left: auto;
@@ -228,8 +299,8 @@
     display: flex; align-items: center; padding-left: 6px;
     font-size: 10px; font-family: monospace;
   }
-  .bar-fill.used { background: #38bdf8; color: #0f172a; }
-  .bar-fill.waste { background: #fca5a5; color: #7f1d1d; }
+  .bar-fill.used { background: var(--bar-used); color: var(--bar-used-text); }
+  .bar-fill.waste { background: var(--bar-waste); color: var(--bar-waste-text); }
   .comparison-val { font-family: monospace; font-size: 11px; text-align: right; }
   .legend {
     display: flex; gap: 12px; margin-top: 12px; font-size: 11px;
@@ -238,7 +309,7 @@
   .legend-item { display: flex; align-items: center; gap: 5px; }
   .legend-sw { width: 12px; height: 12px; border-radius: 2px; }
   .narration {
-    background: #1e293b;
+    background: var(--panel2);
     border-left: 3px solid var(--accent);
     padding: 10px 14px;
     border-radius: 4px;
@@ -264,7 +335,7 @@
   .paper-terms {
     margin-top: 8px;
     padding: 10px 12px;
-    background: #1a2130;
+    background: var(--panel2);
     border: 1px solid var(--border);
     border-left: 3px solid var(--accent2);
     border-radius: 4px;
@@ -279,7 +350,7 @@
   .refcount-badge {
     display: inline-block;
     background: var(--accent2);
-    color: #1e1b4b;
+    color: #ffffff;
     padding: 1px 5px;
     border-radius: 8px;
     font-size: 9px;
@@ -295,7 +366,7 @@
   }
   .switcher { display: flex; gap: 4px; margin-bottom: 16px; }
   .switcher button { flex: 1; font-size: 12px; padding: 6px; }
-  .switcher button.active { background: #0369a1; border-color: #0284c7; }
+  .switcher button.active { background: var(--btn-primary-bg); border-color: var(--btn-primary-border); color: var(--btn-primary-text); }
   .scenario-info {
     padding: 10px 12px;
     background: var(--panel2);
@@ -1169,6 +1240,34 @@ document.addEventListener('keydown', e => {
   else if (e.key === 'ArrowLeft') { e.preventDefault(); stepBack(); }
   else if (e.key === 'r') reset();
 });
+
+// theme sync with the parent blog: read localStorage on load (same-origin, so
+// the parent's blog theme is visible here), then listen for postMessage events
+// from the parent when the reader clicks the blog's light/dark toggle.
+(function () {
+  function applyTheme(theme) {
+    const root = document.documentElement;
+    if (theme === 'light') {
+      root.classList.add('light');
+      root.classList.remove('dark');
+    } else {
+      root.classList.add('dark');
+      root.classList.remove('light');
+    }
+  }
+  function currentTheme() {
+    try {
+      const stored = localStorage.getItem('theme');
+      if (stored === 'light' || stored === 'dark') return stored;
+    } catch (e) { /* localStorage can throw in restrictive contexts */ }
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+  applyTheme(currentTheme());
+  window.addEventListener('message', function (event) {
+    if (!event.data || event.data.type !== 'theme-change') return;
+    applyTheme(event.data.theme);
+  });
+})();
 
 // when embedded in an iframe, post the actual content height to the parent
 // so it can size the iframe to fit and avoid a scrollbar. only runs when

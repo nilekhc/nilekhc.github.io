@@ -67,6 +67,10 @@
     <link rel="stylesheet" href="{{ "/css/sidebar-toc.css" | relURL }}">
     <script defer src="{{ "/js/toc-scrollspy.js" | relURL }}"></script>
 
+    {{/* light-mode override for code blocks: the theme hardcodes a dark bg
+         on `pre` that looks jarring in light mode. see file for details. */}}
+    <link rel="stylesheet" href="{{ "/css/code-block-light.css" | relURL }}">
+
     {{/* extend head with user supplied partial */}}
     {{ if templates.Exists "partials/custom-head.html" }}
       {{ partial "custom-head.html" . }}

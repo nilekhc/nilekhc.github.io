@@ -55,7 +55,9 @@ Moving to GPU changed exactly one line in my deployment YAML: `nvidia.com/gpu: 1
 
 It took a while for the vLLM server pod to come up. The model has ~12B parameters and weights totaling around 24 GB, and with the hardware I had and the network speed, it took several minutes end-to-end. Watching the vLLM logs, I could see several things happening. The model was being downloaded from Hugging Face and loaded into GPU memory. I also saw CUDA graph capture happening. This is the first time I felt GPU memory as a scarce, precious resource. Not a "big number in a spec sheet," but an actual capacity that decides what I can run.
 
-Once the server was up, I started tinkering with it. I sent a single request and the response was immediate. Then I thought, let's try to send some concurrent requests. vLLM comes with a tool called `vllm-bench` that is built for exactly this. I used it to send 10 concurrent requests. It was still fine. Then I tried with 50 concurrent requests. This is where things started to change. I saw some requests getting queued. When I sent 100 concurrent requests, some even failed. My first guess was I/O contention, or some thread pool exhaustion, or maybe something at the vLLM server runtime layer causing the failures. Things I'd seen a number of times before on any Kubernetes deployment, things I could even debug at Azure scale. Well, **none of my guesses were right**.
+Once the server was up, I started tinkering with it. I sent a single request and the response was immediate. Then I wanted to see what the server did under real load. vLLM ships a tool called `vllm bench serve` that is built for exactly this. I fired 100 prompts at 5 requests per second (`--num-prompts 100 --request-rate 5`) and expected to find the ceiling somewhere. I didn't. All 100 succeeded in about 23 seconds. I pushed harder. 500 requests fired all at once (`--max-concurrency 500 --request-rate inf`). Still 500 successes. The scheduler ran 256 at a time and queued the rest, but nothing failed. On this hardware, with this model, I couldn't find the wall.
+
+That was the surprise. I was ready to debug something. Instead I had a server that just kept absorbing more requests. And that raised a question I couldn't answer from the outside: **how far from the wall was I?** If I couldn't see the constraint, I couldn't predict what would break first when I did hit it. That question, "what's the constraint here?", is what pointed me at the paper.
 
 ## The metric that stopped making sense
 
@@ -65,13 +67,13 @@ NVIDIA has a _Data Center GPU Manager_ (DCGM) exporter that emits GPU utilizatio
 
 Then I opened Grafana. Every panel said "No data." I stared at it for a minute before it clicked. Both dashboards use `${DS_PROMETHEUS}` as a placeholder for the Prometheus data source, expecting Grafana's import wizard to resolve it at import time. Loading the JSON via a sidecar ConfigMap skips the wizard entirely, so `${DS_PROMETHEUS}` stays literal in every query, and every panel dies. The fix is to walk the JSON structurally before loading and replace every datasource reference with the concrete Prometheus UID. The full patch lives in `observability/run.sh`. After that fix, everything lit up.
 
-I expected to see the GPU pinned at 100% during token generation, saturated on compute. That is the pattern I'd have expected from any compute-heavy workload. What I actually saw was different. Utilization was spiky, with long dips between bursts. Memory was pinned near the top. Power draw rose and fell with utilization, not with load. The GPU was often waiting on something, not computing. This is the moment my platform instincts collapsed. Every generation had these gaps, and I had no framework for what they meant. I started searching. Every discussion of vLLM's throughput, every blog post about serving optimization, every issue thread pointed at the same idea, **PagedAttention**. And PagedAttention had a paper.
+Two dashboards, side by side. On the left, DCGM showed the GPU sitting at around 90% utilization during my bench, with memory pinned near the top and power holding steady around 270 watts. That much matched what I'd have expected from any compute-heavy workload. But on the right, vLLM's own dashboard told a different story. `vllm:num_requests_running` stabilized around 22. `vllm:kv_cache_usage_perc` peaked at under 5% of its budget. If the GPU was 90% busy, what was it busy on? It wasn't chewing through KV cache. The cache was almost empty. Two lenses were telling me two different things about the word "busy," and I had no framework for what either of them meant on their own, let alone together. That gap, between "the GPU is 90% used" and "the KV cache is 5% used," is what pointed me at the paper. Every discussion of vLLM's throughput, every blog post on serving optimization, every issue thread pointed at the same idea, **PagedAttention**. And PagedAttention had a paper.
 
 ## The reframe
 
 That paper is [Efficient Memory Management for Large Language Model Serving with PagedAttention](https://arxiv.org/abs/2309.06180). It describes how vLLM works. I read it twice. The second read reorganized how I think about serving.
 
-The one-line reframe I wish I'd had before I started, **LLM inference has two phases, and only one of them looks like a compute problem.** The first phase, prefill, processes the whole prompt in a single forward pass and does big matrix-matrix multiplications. That phase is compute-bound. It's matrix-matrix multiplication, the kind you first meet in undergrad linear algebra, just very large. GPUs are built for exactly this. The second phase, decode, generates one token at a time. Each decode step is a matrix-vector multiplication, and matrix-vector is memory-bound. The GPU spends most of its time waiting for weights and cached state to arrive from VRAM, not computing on them. Every gap I'd seen in the utilization graph was a decode step. For the workload I was actually running, compute wasn't the bottleneck. Memory was.
+The one-line reframe I wish I'd had before I started, **LLM inference has two phases, and only one of them looks like a compute problem.** The first phase, prefill, processes the whole prompt in a single forward pass and does big matrix-matrix multiplications. That phase is compute-bound. It's matrix-matrix multiplication, the kind you first meet in undergrad linear algebra, just very large. GPUs are built for exactly this. The second phase, decode, generates one token at a time. Each decode step is a matrix-vector multiplication, and matrix-vector is memory-bound. The GPU spends most of its time waiting for weights and cached state to arrive from VRAM, not computing on them. This explains why DCGM shows me a "busy" GPU while vLLM says the KV cache is almost empty. `DCGM_FI_DEV_GPU_UTIL` measures the percent of time during which at least one kernel was executing, not what those kernels were actually doing. vLLM launches kernels continuously during token generation. Whether each kernel is arithmetic-heavy (compute-bound prefill) or stalled on memory reads (memory-bound decode), the metric just says "yes, a kernel was running." That's why the number can sit at 90% while the workload is fundamentally memory-bound. For the workload I was actually running, compute wasn't the bottleneck. Memory was.
 
 Once you accept that, the next question is what actually lives in the memory the GPU is waiting on. Three things share VRAM. Model weights, which are fixed the moment the model loads and never change during serving. The **KV cache**, which is dynamic and grows per request per generated token. Activations, which are a small ephemeral sliver during each forward pass. The paper's _Figure 1_ shows the split concretely for a 13B model on an A100 40GB. Weights are around 65% of VRAM, the KV cache is more than 30%, and activations are the small remainder. Weights are fixed. Activations are small. Only one of the three scales with how many requests you serve at once, and that one is the _KV cache_.
 
@@ -89,7 +91,7 @@ The unlock is what the block table lets you do next. Two requests sharing the sa
 
 Three misreads I owned before the second read:
 
-- **I thought less waste meant each request runs faster.** It doesn't. Latency per request is roughly unchanged. The win is that you can batch more requests simultaneously, which turns many memory-bound matrix-vector decodes into one matrix-matrix operation that shares the memory fetch across sequences. That is what fills the gaps in the utilization graph.
+- **I thought less waste meant each request runs faster.** It doesn't. Latency per request is roughly unchanged. The win is that you can batch more requests simultaneously, which turns many memory-bound matrix-vector decodes into one matrix-matrix operation that shares the memory fetch across sequences. That is what turns a memory-bound workload into a compute-bound one, and it's why more concurrent traffic doesn't hurt per-request latency the way you'd expect.
 - **I thought K and V were computed once per token.** They're computed once per token per layer. A 40-layer model stores 80 vectors per token in the cache. That "times layers" is why the cache is huge and why every model has different arithmetic.
 - **I thought the model weights were the bottleneck at serving time.** They aren't. The cache is. Weights are fixed; the cache scales with concurrent load, which is what your throughput graph actually measures.
 
@@ -127,11 +129,32 @@ Click through the scenarios below. For a full-screen version, <a href="/post/mem
     if (!frame) return;
     frame.style.height = (event.data.height + 2) + 'px';
   });
+
+  // forward the current blog theme to the embedded visualizer so its colors
+  // stay in sync when the reader flips between light and dark mode.
+  (function () {
+    function currentTheme() {
+      var root = document.documentElement;
+      if (root.classList.contains('light')) return 'light';
+      if (root.classList.contains('dark')) return 'dark';
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    function sendTheme() {
+      var frame = document.getElementById('visualizer-frame');
+      if (!frame || !frame.contentWindow) return;
+      frame.contentWindow.postMessage({ type: 'theme-change', theme: currentTheme() }, '*');
+    }
+    var frame = document.getElementById('visualizer-frame');
+    if (frame) frame.addEventListener('load', sendTheme);
+    new MutationObserver(sendTheme).observe(document.documentElement, {
+      attributes: true, attributeFilter: ['class'],
+    });
+  })();
 </script>
 
 ## The loop closes
 
-Back to the dashboard I couldn't explain. Every gap in the GPU utilization curve is a decode step, matrix-vector by matrix-vector, the cores waiting on weights and KV cache to arrive from VRAM. Every burst is a prefill, matrix-matrix, cores saturated. The reason batching helps is that batching turns many parallel matrix-vector decodes into one matrix-matrix operation over the same weight fetch, which amortizes the memory-bandwidth cost across sequences. That is the whole story of throughput in a memory-bound system. Every choice above the hardware layer, whether it is the scheduler, quantization, prefix caching, or speculative decoding, is a variation on the same theme, get more useful work done per memory fetch.
+Back to the two dashboards. DCGM showing 90% GPU utilization while vLLM shows 5% KV cache usage doesn't feel strange anymore. The GPU_UTIL metric only asks "was a kernel running," not "was that kernel doing useful arithmetic or stalled on memory." A GPU with lots of memory-bound decode kernels launching back-to-back reports 90% just as easily as one running arithmetic-heavy matrix-matrix multiplies. The distinction matters because it tells you which resource is the ceiling. Each streaming multiprocessor (SM, one of the 108 parallel compute units on an A100) can be present and scheduled but stalled, waiting on a memory read that hasn't returned yet. The reason batching helps is that batching turns many parallel matrix-vector decodes into one matrix-matrix operation over the same weight fetch, which amortizes the memory-bandwidth cost across sequences and lets the SMs actually spend their cycles computing instead of waiting. That is the whole story of throughput in a memory-bound system. Every choice above the hardware layer, whether it is the scheduler, quantization, prefix caching, or speculative decoding, is a variation on the same theme, get more useful work done per memory fetch.
 
 LLM serving looks like a distributed systems problem, but it is really a memory management problem. If you don't see it that way, no amount of scaling will save you.
 
